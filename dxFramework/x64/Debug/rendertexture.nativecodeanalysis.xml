@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<DEFECTS>
+  <DEFECT>
+    <SFA>
+      <FILEPATH>c:\users\kamil\source\repos\dxframework\dxframework</FILEPATH>
+      <FILENAME>rendertexture.cpp</FILENAME>
+      <LINE>3</LINE>
+      <COLUMN>15</COLUMN>
+    </SFA>
+    <DEFECTCODE>26495</DEFECTCODE>
+    <DESCRIPTION>Variable 'RenderTexture::m_renderTargetView' is uninitialized. Always initialize a member variable (type.6).</DESCRIPTION>
+    <FUNCTION>RenderTexture::{ctor}</FUNCTION>
+    <DECORATED>??0RenderTexture@@QEAA@HHPEAUID3D11Device@@W4DXGI_FORMAT@@@Z</DECORATED>
+    <FUNCLINE>3</FUNCLINE>
+    <PATH></PATH>
+  </DEFECT>
+  <DEFECT>
+    <SFA>
+      <FILEPATH>c:\users\kamil\source\repos\dxframework\dxframework</FILEPATH>
+      <FILENAME>rendertexture.cpp</FILENAME>
+      <LINE>3</LINE>
+      <COLUMN>15</COLUMN>
+    </SFA>
+    <DEFECTCODE>26495</DEFECTCODE>
+    <DESCRIPTION>Variable 'RenderTexture::m_shaderResourceView' is uninitialized. Always initialize a member variable (type.6).</DESCRIPTION>
+    <FUNCTION>RenderTexture::{ctor}</FUNCTION>
+    <DECORATED>??0RenderTexture@@QEAA@HHPEAUID3D11Device@@W4DXGI_FORMAT@@@Z</DECORATED>
+    <FUNCLINE>3</FUNCLINE>
+    <PATH></PATH>
+  </DEFECT>
+  <DEFECT>
+    <SFA>
+      <FILEPATH>c:\users\kamil\source\repos\dxframework\dxframework</FILEPATH>
+      <FILENAME>rendertexture.cpp</FILENAME>
+      <LINE>3</LINE>
+      <COLUMN>15</COLUMN>
+    </SFA>
+    <DEFECTCODE>26495</DEFECTCODE>
+    <DESCRIPTION>Variable 'RenderTexture::m_viewport' is uninitialized. Always initialize a member variable (type.6).</DESCRIPTION>
+    <FUNCTION>RenderTexture::{ctor}</FUNCTION>
+    <DECORATED>??0RenderTexture@@QEAA@HHPEAUID3D11Device@@W4DXGI_FORMAT@@@Z</DECORATED>
+    <FUNCLINE>3</FUNCLINE>
+    <PATH></PATH>
+  </DEFECT>
+  <DEFECT>
+    <SFA>
+      <FILEPATH>c:\users\kamil\source\repos\dxframework\dxframework</FILEPATH>
+      <FILENAME>rendertexture.cpp</FILENAME>
+      <LINE>3</LINE>
+      <COLUMN>15</COLUMN>
+    </SFA>
+    <DEFECTCODE>26495</DEFECTCODE>
+    <DESCRIPTION>Variable 'RenderTexture::m_texture2D' is uninitialized. Always initialize a member variable (type.6).</DESCRIPTION>
+    <FUNCTION>RenderTexture::{ctor}</FUNCTION>
+    <DECORATED>??0RenderTexture@@QEAA@HHPEAUID3D11Device@@W4DXGI_FORMAT@@@Z</DECORATED>
+    <FUNCLINE>3</FUNCLINE>
+    <PATH></PATH>
+  </DEFECT>
+</DEFECTS>
