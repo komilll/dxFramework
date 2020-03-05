@@ -22,7 +22,7 @@ float4 main(PixelInputType input) : SV_TARGET
 	const float3 randomVector = float3(noiseTexture.Sample(baseSampler, input.uv * noiseScale).xy, 0.0f);
 	const float3 tangent = normalize(randomVector - normal * dot(randomVector, normal));
 	const float3 bitangent = cross(normal, tangent);	
-	const matrix<float, 3, 3> TBN = {tangent, bitangent, normal};
+	const matrix<float, 3, 3> TBN = {tangent, bitangent, normal};	
 	
 	float occlussion = 0;
 	

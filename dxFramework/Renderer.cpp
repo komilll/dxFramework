@@ -95,8 +95,8 @@ void Renderer::Render()
 		RenderGBuffer(Renderer::GBufferType::Position);
 		RenderGBuffer(Renderer::GBufferType::Normal);
 		RenderGBuffer(Renderer::GBufferType::Depth);
-		//RenderSSAO();
-		RenderToBackBuffer(m_normalBufferTexture);
+		RenderSSAO();
+		//RenderToBackBuffer(m_normalBufferTexture);
 		return;
 
 		context->VSSetShader(m_baseVertexShader, NULL, 0);
