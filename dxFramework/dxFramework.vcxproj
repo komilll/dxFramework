@@ -176,6 +176,7 @@
     <ClInclude Include="ModelDX.h" />
     <ClInclude Include="Renderer.h" />
     <ClInclude Include="RenderTexture.h" />
+    <ClInclude Include="SaveSession.h" />
     <ClInclude Include="ShaderSSAO.h" />
     <ClInclude Include="ShaderSwapper.h" />
     <ClInclude Include="targetver.h" />
@@ -197,6 +198,7 @@
     <ClCompile Include="ModelDX.cpp" />
     <ClCompile Include="Renderer.cpp" />
     <ClCompile Include="RenderTexture.cpp" />
+    <ClCompile Include="SaveSession.cpp" />
     <ClCompile Include="ShaderSSAO.cpp" />
     <ClCompile Include="ShaderSwapper.cpp" />
   </ItemGroup>

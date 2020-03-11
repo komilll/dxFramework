@@ -18,17 +18,16 @@ struct VertexInputType
 {
 	float3 position : POSITION;
 	float3 normal : NORMAL;
-	float2 uv: TEXCOORD0;
+	float3 tangent : TANGENT;
+	float3 binormal : BINORMAL;
+	float2 uv: TEXCOORD0;	
 };
 
 PixelInputType main(VertexInputType input)
 {
 	PixelInputType output;
-	
-	output.position.x = input.position.x;
-	output.position.y = input.position.y;
-	output.position.z = input.position.z;
-	output.position.w = 1.0f;		
+		
+	output.position = float4(input.position, 1.0f);
 	
 	output.pointToLight.xyz = g_directionalLightDirection;
 	output.pointToLight.w = g_directionalLightIntensity;
@@ -36,8 +35,11 @@ PixelInputType main(VertexInputType input)
 	output.position = mul(output.position, worldMatrix);	
 	output.position = mul(output.position, viewMatrix);
 	output.position = mul(output.position, projectionMatrix);
-	output.normal = input.normal;
 	
+	output.normal =		mul(input.normal, worldMatrix);
+	output.tangent = 	mul(input.tangent, worldMatrix);
+	output.binormal = 	mul(input.binormal, worldMatrix);
+
 	output.viewRay.xyz = output.position.xyz - g_viewerPosition;
 	output.viewDir.xyz = output.position.xyz - g_directionalLightDirection;
 	

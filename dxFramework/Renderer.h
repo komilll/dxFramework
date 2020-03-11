@@ -14,8 +14,20 @@ using namespace DirectX;
 class Renderer 
 {
 public:
-	enum class GBufferType {
-		Position, Normal, Depth
+	enum class GBufferType : int {
+		Position, Normal, Depth, MAX
+	};
+
+	enum class NdfType : int {
+		Beckmann, GGX, BlinnPhong, MAX
+	};
+
+	enum class GeometryType : int {
+		Implicit, Neumann, CookTorrance, Kelemen, Smith, Beckmann, GGX, SchlickBeckmann, SchlickGGX, MAX
+	};
+
+	enum class FresnelType : int {
+		None, Schlick, CookTorrance, MAX
 	};
 
 public:
@@ -44,23 +56,26 @@ private:
 	void RenderGBuffer(Renderer::GBufferType type);
 	void RenderSSAO();
 
+	void SaveTextureToFile(RenderTexture * texture, const wchar_t* name);
+
+private:
+//Rendering settings
+	NdfType m_ndfType = NdfType::GGX;
+	GeometryType m_geometryType = GeometryType::GGX;
+	FresnelType m_fresnelType = FresnelType::None;
+
+//Buffers and rendering data
 	std::shared_ptr<DeviceManager> m_deviceManager;
 
 	unsigned int m_indexCount;
 	unsigned int m_frameCount;
 
 	typedef struct _constantBufferStruct {
-		XMFLOAT4X4 world;
-		XMFLOAT4X4 view;
-		XMFLOAT4X4 projection;
+		XMMATRIX world;
+		XMMATRIX view;
+		XMMATRIX projection;
 	} ConstantBufferStruct;
 	static_assert((sizeof(ConstantBufferStruct) % 16) == 0, "Constant Buffer size must be 16-byte aligned");
-
-	typedef struct _vertexBufferStruct {
-		XMFLOAT3 position;
-		XMFLOAT3 normal;
-		XMFLOAT2 uv;
-	} VertexBufferStruct;
 
 	typedef struct _directionalLightBuffer {
 		XMFLOAT3 direction;
@@ -76,9 +91,26 @@ private:
 
 	typedef struct _specialBufferSSAOStruct {
 		std::array<XMFLOAT4, 64> kernelSample;
-		XMFLOAT4X4 projectionMatrix;
+		XMMATRIX projectionMatrix;
+		int sampleCount;
+		float kernelRadius;
+		XMFLOAT2 padding;
 	} SpecialBufferSSAOStruct;
 	static_assert((sizeof(SpecialBufferSSAOStruct) % 16) == 0, "SpecialBufferSSAO size must be 16-byte aligned");
+
+	typedef struct _specialBufferBRDFStruct {
+		int ndfType;
+		int geometryType;
+		int fresnelType;
+		int hasNormal;
+		int hasRoughness;
+		int hasMetallic;
+		float roughnessValue;
+		float metallicValue;
+		float f0;
+		XMFLOAT3 padding;
+	} SpecialBufferBRDFStruct;
+	static_assert((sizeof(SpecialBufferBRDFStruct) % 16) == 0, "SpecialBufferBRDFStruct size must be 16-byte aligned");
 
 	//Constant buffers
 	ConstantBufferStruct m_constantBufferData;
@@ -86,6 +118,7 @@ private:
 	UberBufferStruct m_uberBufferData;
 	PropertyBuffer m_propertyBufferData;
 	SpecialBufferSSAOStruct m_specialBufferSSAOData;
+	SpecialBufferBRDFStruct m_specialBufferBRDFData;
 
 	ID3D11Buffer* m_vertexBuffer		= NULL;
 	ID3D11Buffer* m_indexBuffer			= NULL;
@@ -97,6 +130,7 @@ private:
 	ID3D11Buffer* m_uberBuffer				= NULL;
 	ID3D11Buffer* m_propertyBuffer			= NULL;
 	ID3D11Buffer* m_specialBufferSSAO		= NULL;
+	ID3D11Buffer* m_specialBufferBRDF		= NULL;
 
 	//Camera data
 	XMFLOAT3 m_cameraPosition{ 0,0,0 };
@@ -104,20 +138,28 @@ private:
 	XMFLOAT3 m_cameraRotation{ 0,0,0 };
 
 	//Shader data
-	ID3D11SamplerState* m_baseSamplerState		 = NULL;
-	ID3D11Resource* m_baseResource				 = NULL;
-	ID3D11ShaderResourceView* m_baseResourceView = NULL;
+	ID3D11SamplerState* m_baseSamplerState				= NULL;
+	ID3D11Resource* m_baseResource						= NULL;
+	ID3D11ShaderResourceView* m_baseResourceView		= NULL;
+	ID3D11Resource* m_normalResource					= NULL;
+	ID3D11ShaderResourceView* m_normalResourceView		= NULL;
+	ID3D11Resource* m_roughnessResource					= NULL;
+	ID3D11ShaderResourceView* m_roughnessResourceView	= NULL;
+	ID3D11Resource* m_metallicResource					= NULL;
+	ID3D11ShaderResourceView* m_metallicResourceView	= NULL;
 
 	RenderTexture* m_renderTexture				 = NULL;
 	RenderTexture* m_positionBufferTexture		 = NULL;
 	RenderTexture* m_normalBufferTexture		 = NULL;
 	RenderTexture* m_depthBufferTexture			 = NULL;
+	RenderTexture* m_ssaoBufferTexture			 = NULL;
 	RenderTexture* m_backBufferRenderTexture	 = NULL;
 	ModelDX* m_backBufferQuadModel				 = NULL;
 	ModelDX* m_bunnyModel						 = NULL;
 
 	//Shader buffers
 	ID3D11VertexShader* m_baseVertexShader			= NULL;
+	ID3D11VertexShader* m_vertexShaderViewPosition	= NULL;
 	ID3D11VertexShader* m_vertexShaderBackBuffer	= NULL;
 
 	ID3D11PixelShader* m_pixelShaderBunny			= NULL;
@@ -126,6 +168,7 @@ private:
 	ID3D11PixelShader* m_pixelShaderNormalBuffer	= NULL;
 	ID3D11PixelShader* m_pixelShaderDepthBuffer		= NULL;
 	ID3D11PixelShader* m_pixelShaderSSAO			= NULL;
+	ID3D11PixelShader* m_pixelShaderBlurSSAO		= NULL;
 
 	//Postprocess classes
 	ShaderSSAO* m_ssao	= NULL;

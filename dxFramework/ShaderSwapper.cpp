@@ -4,18 +4,12 @@
 
 bool ShaderSwapper::CompileShader(std::string vertexShaderName, std::string pixelShaderName, ID3D11PixelShader ** pixelShader, ID3D11VertexShader ** vertexShader, ID3D11InputLayout ** inputLayout, ID3D11Device * device)
 {
-	////if (*vertexShader) {
-	////	(*vertexShader)->Release();
-	////}
-	////if (*pixelShader) {
-	////	(*pixelShader)->Release(); 
-	////}
-
-	//if (vertexShader && (*vertexShader))
-	//{
-	//	(*vertexShader)->Release();
-	//}
-
+	if (vertexShader && *vertexShader) {
+		(*vertexShader)->Release();
+	}
+	if (pixelShader && *pixelShader) {
+		(*pixelShader)->Release(); 
+	}
 
 	HRESULT result;
 	ID3D10Blob* vertexShaderBuffer{ nullptr };
@@ -88,9 +82,9 @@ bool ShaderSwapper::CompileShader(std::string vertexShaderName, std::string pixe
 	return result;
 }
 
-std::array<D3D11_INPUT_ELEMENT_DESC, 3> ShaderSwapper::GetStandardPolygonLayout()
+std::array<D3D11_INPUT_ELEMENT_DESC, 5> ShaderSwapper::GetStandardPolygonLayout()
 {
-	std::array<D3D11_INPUT_ELEMENT_DESC, 3> polygonLayout;
+	std::array<D3D11_INPUT_ELEMENT_DESC, 5> polygonLayout;
 	polygonLayout[0].SemanticName = "POSITION";
 	polygonLayout[0].SemanticIndex = 0;
 	polygonLayout[0].Format = DXGI_FORMAT_R32G32B32_FLOAT;
@@ -107,13 +101,29 @@ std::array<D3D11_INPUT_ELEMENT_DESC, 3> ShaderSwapper::GetStandardPolygonLayout(
 	polygonLayout[1].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
 	polygonLayout[1].InstanceDataStepRate = 0;
 
-	polygonLayout[2].SemanticName = "TEXCOORD";
+	polygonLayout[2].SemanticName = "TANGENT";
 	polygonLayout[2].SemanticIndex = 0;
-	polygonLayout[2].Format = DXGI_FORMAT_R32G32_FLOAT;
+	polygonLayout[2].Format = DXGI_FORMAT_R32G32B32_FLOAT;
 	polygonLayout[2].InputSlot = 0;
 	polygonLayout[2].AlignedByteOffset = D3D11_APPEND_ALIGNED_ELEMENT;
 	polygonLayout[2].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
 	polygonLayout[2].InstanceDataStepRate = 0;
+
+	polygonLayout[3].SemanticName = "BINORMAL";
+	polygonLayout[3].SemanticIndex = 0;
+	polygonLayout[3].Format = DXGI_FORMAT_R32G32B32_FLOAT;
+	polygonLayout[3].InputSlot = 0;
+	polygonLayout[3].AlignedByteOffset = D3D11_APPEND_ALIGNED_ELEMENT;
+	polygonLayout[3].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
+	polygonLayout[3].InstanceDataStepRate = 0;
+
+	polygonLayout[4].SemanticName = "TEXCOORD";
+	polygonLayout[4].SemanticIndex = 0;
+	polygonLayout[4].Format = DXGI_FORMAT_R32G32_FLOAT;
+	polygonLayout[4].InputSlot = 0;
+	polygonLayout[4].AlignedByteOffset = D3D11_APPEND_ALIGNED_ELEMENT;
+	polygonLayout[4].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
+	polygonLayout[4].InstanceDataStepRate = 0;
 
 	return polygonLayout;
 }

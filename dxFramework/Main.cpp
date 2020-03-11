@@ -68,7 +68,8 @@ HRESULT Main::Run(std::shared_ptr<DeviceManager> deviceManager, std::shared_ptr<
 	ID3D11DepthStencilView* depthStencil = deviceManager->GetDepthStencil();
 
 	m_inputManager = std::shared_ptr<InputManager>(new InputManager());
-	m_guiManager = std::shared_ptr<GuiManager>(new GuiManager(deviceManager, renderer));
+	m_saveSession = std::shared_ptr<SaveSession>(new SaveSession());
+	m_guiManager = std::shared_ptr<GuiManager>(new GuiManager(deviceManager, renderer, m_saveSession));
 
 	if (!IsWindowVisible(m_hwnd))
 	{

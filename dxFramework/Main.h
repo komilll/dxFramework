@@ -7,6 +7,7 @@
 #include "Renderer.h"
 #include "InputManager.h"
 #include "GuiManager.h"
+#include "SaveSession.h"
 
 class Main
 {
@@ -28,5 +29,6 @@ static XMFLOAT3 m_cameraPositionChange;
 static XMFLOAT3 m_cameraRotationChange;
 static std::shared_ptr<InputManager> m_inputManager;
 static std::shared_ptr<GuiManager> m_guiManager;
+static std::shared_ptr<SaveSession> m_saveSession;
 static HINSTANCE m_hInstance;
 static std::wstring m_windowClassName = L"dxFramework";

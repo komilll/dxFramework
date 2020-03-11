@@ -3,6 +3,8 @@
 #include <DDSTextureLoader.h>
 #include <WICTextureLoader.h>
 #include <DirectXMath.h>
+#include "SaveSession.h"
+#include <sstream>
 
 HRESULT DeviceManager::CreateDeviceResources(HWND hwnd)
 {
@@ -228,15 +230,16 @@ HRESULT DeviceManager::SetWindowedMode()
 	return result;
 }
 
-void DeviceManager::TextureChooseWindow(ID3D11Resource ** texture, ID3D11ShaderResourceView ** textureView) const
+void DeviceManager::TextureChooseWindow(ID3D11Resource ** texture, ID3D11ShaderResourceView ** textureView, std::string* pathToSave /* = NULL */) const
 {
 	PWSTR pszFilePath;
 	wchar_t* wFilePath = 0;
+	std::wstringstream ss;
 	IFileOpenDialog *pFileOpen;
 	const COMDLG_FILTERSPEC ddsSpec = { L"DDS (DirectDraw Surface)", L"*.dds" };
 	const COMDLG_FILTERSPEC pngSpec = { L"PNG", L"*.png" };
 	const COMDLG_FILTERSPEC allSpec = { L"All files", L"*.*" };
-	const COMDLG_FILTERSPEC rgSpec[] = { ddsSpec, pngSpec, allSpec };
+	const COMDLG_FILTERSPEC rgSpec[] = { allSpec, ddsSpec, pngSpec };
 
 	// Create the FileOpenDialog object.
 	HRESULT hr = CoCreateInstance(CLSID_FileOpenDialog, NULL, CLSCTX_ALL, IID_IFileOpenDialog, reinterpret_cast<void**>(&pFileOpen));
@@ -263,9 +266,22 @@ void DeviceManager::TextureChooseWindow(ID3D11Resource ** texture, ID3D11ShaderR
 				{
 					wFilePath = pszFilePath;
 
-					if (!LoadTextureFromFile(wFilePath, texture, textureView))
+					if (FAILED(LoadTextureFromFile(wFilePath, texture, textureView)))
 					{
 						assert(false);
+					}
+					if (pathToSave)
+					{
+						ss << pszFilePath;
+						const std::wstring ws = ss.str();
+						const std::string str(ws.begin(), ws.end());
+
+						*pathToSave = str;
+						//Used to get only filename
+						//const std::size_t found = str.find_last_of("/\\");
+						//str.substr(found + 1);
+
+						//SaveSession::UpdateSavedData();
 					}
 					CoTaskMemFree(pszFilePath);
 				}
@@ -327,14 +343,16 @@ void DeviceManager::Present()
 	m_deviceContext->ClearState();
 }
 
-bool DeviceManager::LoadTextureFromFile(wchar_t * wFilePath, ID3D11Resource ** texture, ID3D11ShaderResourceView ** textureView) const
+HRESULT DeviceManager::LoadTextureFromFile(const wchar_t * wFilePath, ID3D11Resource ** texture, ID3D11ShaderResourceView ** textureView) const
 {
+	assert(GetDevice());
+	assert(GetDeviceContext());
 	if (*texture != nullptr) (*texture)->Release();
 	if (*textureView != nullptr) (*textureView)->Release();
 
 	HRESULT result = DirectX::CreateDDSTextureFromFile(GetDevice(), wFilePath, texture, textureView);
 	if (FAILED(result))	{
-		result = DirectX::CreateWICTextureFromFile(GetDevice(), wFilePath, texture, textureView);
+		result = DirectX::CreateWICTextureFromFile(GetDevice(), GetDeviceContext(), wFilePath, texture, textureView);
 	}
 
 	if (FAILED(result))
@@ -343,7 +361,6 @@ bool DeviceManager::LoadTextureFromFile(wchar_t * wFilePath, ID3D11Resource ** t
 		if (*textureView != nullptr) (*textureView)->Release();
 		texture = nullptr;
 		textureView = nullptr;
-		return false;
 	}
-	return true;
+	return result;
 }

@@ -13,9 +13,11 @@ using namespace DirectX;
 class ModelDX
 {
 public:
-	struct Vertex {
+	struct VertexBufferStruct {
 		XMFLOAT3 position;
 		XMFLOAT3 normal;
+		XMFLOAT3 tangent;
+		XMFLOAT3 binormal;
 		XMFLOAT2 uv;
 	};
 
@@ -23,11 +25,11 @@ public:
 		unsigned int vertexCount;
 		unsigned int indexCount;
 
-		Vertex* vertices;
+		VertexBufferStruct* vertices;
 		unsigned long* indices;
 
 		Mesh() = default;
-		Mesh(Vertex _vertices[], unsigned long _indices[]) : vertices{ _vertices }, indices{ _indices }
+		Mesh(VertexBufferStruct _vertices[], unsigned long _indices[]) : vertices{ _vertices }, indices{ _indices }
 		{
 
 		}
@@ -68,6 +70,8 @@ private:
 //VARIABLES
 public:
 	float m_scale = 1.0f;
+	XMFLOAT3 m_position{ 0.0f, 0.0f, 0.0f };
+	XMFLOAT3 m_rotation{ 0.0f, 0.0f, 0.0f };
 
 private:
 	std::vector<Mesh> m_meshes;

@@ -14,17 +14,24 @@
 #include <dinput.h>
 #include <tchar.h>
 #include "Renderer.h"
+#include <array>
+#include "SaveSession.h"
 
 class GuiManager
 {
 public:	
-	GuiManager(std::shared_ptr<DeviceManager> deviceManager, std::shared_ptr<Renderer> renderer);
+	GuiManager(std::shared_ptr<DeviceManager> deviceManager, std::shared_ptr<Renderer> renderer, std::shared_ptr<SaveSession> saveSession);
 
 	void DrawImGUI();
 
 private:
+	bool TryToLoadTextures();
+	bool TryToLoadTexture(std::string* path, ID3D11Resource** resource, ID3D11ShaderResourceView** resourceView);
+
+private:
 	std::shared_ptr<DeviceManager> m_deviceManager;
 	std::shared_ptr<Renderer> m_renderer;
+	std::shared_ptr<SaveSession> m_saveSession;
 };
 
 #endif // !_GUI_MANAGER_H_

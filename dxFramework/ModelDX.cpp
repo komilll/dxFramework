@@ -29,7 +29,7 @@ void ModelDX::LoadModel(std::string path, ID3D11Device * device)
 
 unsigned int ModelDX::Render(ID3D11DeviceContext* context)
 {
-	constexpr UINT stride = sizeof(ModelDX::Vertex);
+	constexpr UINT stride = sizeof(ModelDX::VertexBufferStruct);
 	constexpr UINT offset = 0;
 
 	context->IASetVertexBuffers(0, 1, &m_vertexBuffer, &stride, &offset);
@@ -56,33 +56,79 @@ void ModelDX::ProcessNode(aiNode * node, const aiScene * scene)
 ModelDX::Mesh ModelDX::ProcessMesh(aiMesh * mesh, const aiScene * scene)
 {
 	Mesh localMesh;
-	localMesh.vertices = new Vertex[mesh->mNumVertices];
+	localMesh.vertices = new VertexBufferStruct[mesh->mNumVertices];
 
 	for (unsigned int i = 0; i < mesh->mNumVertices; ++i)
 	{
-		Vertex vertex;
-		XMFLOAT3 tmp;
+		//POSITION
+		VertexBufferStruct vertex;
+		vertex.position = XMFLOAT3{ mesh->mVertices[i].x, mesh->mVertices[i].y, mesh->mVertices[i].z };
 
-		tmp.x = mesh->mVertices[i].x;
-		tmp.y = mesh->mVertices[i].y;
-		tmp.z = mesh->mVertices[i].z;
-		vertex.position = tmp;
-
-		if (mesh->mNormals){
-			tmp.x = mesh->mNormals[i].x;
-			tmp.y = mesh->mNormals[i].y;
-			tmp.z = mesh->mNormals[i].z;
-			vertex.normal = tmp;
+		//NORMAL
+		if (mesh->mNormals) {
+			vertex.normal = XMFLOAT3{ mesh->mNormals[i].x, mesh->mNormals[i].y, mesh->mNormals[i].z };
+		}
+		else {
+			assert(false);
 		}
 
-		if (mesh->HasTextureCoords(0)){
+		//UV
+		if (mesh->HasTextureCoords(0)) {
 			vertex.uv.x = mesh->mTextureCoords[0][i].x;
 			vertex.uv.y = mesh->mTextureCoords[0][i].y;
 		}
-		else{
+		else {
 			vertex.uv = XMFLOAT2{ 0,0 };
 		}
 
+		//TANGENT and BINORMAL
+		if (!mesh->mBitangents || !mesh->mTangents)
+		{
+			if (i >= 2 && (i - 2) % 3 == 0)
+			{
+				//https://learnopengl.com/Advanced-Lighting/Normal-Mapping
+				const XMFLOAT3 pos1 = localMesh.vertices[i - 2].position;
+				const XMFLOAT3 pos2 = localMesh.vertices[i - 1].position;
+				const XMFLOAT3 pos3 = localMesh.vertices[i].position;
+				const XMFLOAT3 edge1 = XMFLOAT3{ pos2.x - pos1.x, pos2.y - pos1.y, pos2.z - pos1.z };
+				const XMFLOAT3 edge2 = XMFLOAT3{ pos3.x - pos1.x, pos3.y - pos1.y, pos3.z - pos1.z };
+
+				const XMFLOAT2 uv1 = localMesh.vertices[i - 2].uv;
+				const XMFLOAT2 uv2 = localMesh.vertices[i - 1].uv;
+				const XMFLOAT2 uv3 = localMesh.vertices[i].uv;
+				const XMFLOAT2 deltaUV1 = XMFLOAT2{ uv2.x - uv1.x, uv2.y - uv1.y };
+				const XMFLOAT2 deltaUV2 = XMFLOAT2{ uv3.x - uv1.x, uv3.y - uv1.y };
+
+				const float denominator = 1.0f / (deltaUV1.x * deltaUV2.y - deltaUV2.x * deltaUV1.y);
+
+				XMVECTOR tangent = XMVectorSet(denominator * (deltaUV2.y * edge1.x - deltaUV1.y * edge2.x),
+												denominator * (deltaUV2.y * edge1.y - deltaUV1.y * edge2.y),
+												denominator * (deltaUV2.y * edge1.z - deltaUV1.y * edge2.z),
+												0.0f);
+				tangent = XMVector3Normalize(tangent);
+
+				XMVECTOR binormal = XMVectorSet(denominator * (-deltaUV2.x * edge1.x + deltaUV1.x * edge2.x),
+												denominator * (-deltaUV2.x * edge1.y + deltaUV1.x * edge2.y),
+												denominator * (-deltaUV2.x * edge1.z + deltaUV1.x * edge2.z),
+												0.0f);
+				binormal = XMVector3Normalize(binormal);
+
+				localMesh.vertices->tangent = XMFLOAT3{ tangent.m128_f32[0], tangent.m128_f32[1], tangent.m128_f32[2] };
+				localMesh.vertices->binormal = XMFLOAT3{ binormal.m128_f32[0], binormal.m128_f32[1], binormal.m128_f32[2] };
+			}			
+		}
+		else
+		{
+			if (mesh->mBitangents) {
+				vertex.binormal = XMFLOAT3{ mesh->mBitangents[i].x, mesh->mBitangents[i].y, mesh->mBitangents[i].z };
+			}
+
+			if (mesh->mTangents) {
+				vertex.tangent = XMFLOAT3{ mesh->mTangents[i].x, mesh->mTangents[i].y, mesh->mTangents[i].z };
+			}
+		}
+
+		//Store in array
 		localMesh.vertices[i] = vertex;
 	}
 
@@ -115,7 +161,7 @@ bool ModelDX::CreateRectangle(ID3D11Device * device, float left, float right, fl
 	Mesh localMesh;
 	constexpr size_t verticesCount = 6;
 
-	localMesh.vertices = new Vertex[verticesCount];
+	localMesh.vertices = new VertexBufferStruct[verticesCount];
 	localMesh.indices = new unsigned long[verticesCount];
 	localMesh.vertexCount = verticesCount;
 	localMesh.indexCount = verticesCount;
@@ -159,7 +205,7 @@ bool ModelDX::PrepareBuffers(ID3D11Device* device)
 	//Create vertex buffer
 	D3D11_BUFFER_DESC vertexBufferDesc;
 	vertexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
-	vertexBufferDesc.ByteWidth = sizeof(ModelDX::Vertex) * mesh.vertexCount;
+	vertexBufferDesc.ByteWidth = sizeof(ModelDX::VertexBufferStruct) * mesh.vertexCount;
 	vertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 	vertexBufferDesc.CPUAccessFlags = 0;
 	vertexBufferDesc.MiscFlags = 0;

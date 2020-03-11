@@ -16,40 +16,50 @@ Renderer::Renderer(std::shared_ptr<DeviceManager> deviceManager)
 	m_propertyBufferData.directionalLightColor = XMFLOAT3{ 1,1,1 };
 	m_propertyBufferData.roughness = 0.25f;
 
-	m_cameraPosition = XMFLOAT3{ 0.5f, 1.5f, -6.f};
+	m_cameraPosition = XMFLOAT3{ -13.0f, 9.5f, 26.5f };
+	m_cameraRotation = XMFLOAT3{ 19.0f, -206.0f, 180.0f};
 
 	m_deviceManager->ConfigureSamplerState(&m_baseSamplerState);// , D3D11_TEXTURE_ADDRESS_WRAP, D3D11_FILTER_MIN_MAG_LINEAR_MIP_POINT);
 
 	m_renderTexture = new RenderTexture(1280, 720, m_deviceManager->GetDevice());
 	m_positionBufferTexture = new RenderTexture(1280, 720, m_deviceManager->GetDevice());
 	m_normalBufferTexture = new RenderTexture(1280, 720, m_deviceManager->GetDevice());
-	m_depthBufferTexture = new RenderTexture(1280, 720, m_deviceManager->GetDevice(), DXGI_FORMAT_R16_FLOAT);	
+	m_depthBufferTexture = new RenderTexture(1280, 720, m_deviceManager->GetDevice(), DXGI_FORMAT_R16_FLOAT);
+	m_ssaoBufferTexture = new RenderTexture(1280, 720, m_deviceManager->GetDevice(), DXGI_FORMAT_R32_FLOAT);
 	m_backBufferRenderTexture = new RenderTexture(1280, 720, m_deviceManager->GetDevice());
 
 	m_backBufferQuadModel = new ModelDX();
 	m_backBufferQuadModel->SetFullScreenRectangleModel(m_deviceManager->GetDevice());
 
 	m_bunnyModel = new ModelDX();
-	m_bunnyModel->LoadModel("bunny.obj", m_deviceManager->GetDevice());
-	m_bunnyModel->m_scale = 100.0f;
+	m_bunnyModel->LoadModel("sphere.obj", m_deviceManager->GetDevice());
+	m_bunnyModel->m_scale = 10.0f;
 
-	ShaderSwapper::CompileShader("VS_Base.hlsl", "PS_BlinnPhong.hlsl", &m_pixelShaderBunny, &m_baseVertexShader, &m_inputLayout, m_deviceManager->GetDevice());
+	ShaderSwapper::CompileShader("VS_Base.hlsl", "PS_BRDF.hlsl", &m_pixelShaderBunny, &m_baseVertexShader, &m_inputLayout, m_deviceManager->GetDevice());
 	ShaderSwapper::CompileShader("VS_BackBuffer.hlsl", "PS_BackBuffer.hlsl", &m_pixelShaderBackBuffer, &m_vertexShaderBackBuffer, &m_inputLayout, m_deviceManager->GetDevice());
+	ShaderSwapper::CompileShader("VS_ViewSpacePosition.hlsl", "", NULL, &m_vertexShaderViewPosition, &m_inputLayout, m_deviceManager->GetDevice());
 	ShaderSwapper::CompileShader("", "PS_SSAO.hlsl", &m_pixelShaderSSAO, NULL, &m_inputLayout, m_deviceManager->GetDevice());
+	ShaderSwapper::CompileShader("", "PS_SSAOBlur.hlsl", &m_pixelShaderBlurSSAO, NULL, &m_inputLayout, m_deviceManager->GetDevice());
 	ShaderSwapper::CompileShader("", "PS_PositionBuffer.hlsl", &m_pixelShaderPositionBuffer, NULL, &m_inputLayout, m_deviceManager->GetDevice());
 	ShaderSwapper::CompileShader("", "PS_NormalBuffer.hlsl", &m_pixelShaderNormalBuffer, NULL, &m_inputLayout, m_deviceManager->GetDevice());
 	ShaderSwapper::CompileShader("", "PS_DepthBuffer.hlsl", &m_pixelShaderDepthBuffer, NULL, &m_inputLayout, m_deviceManager->GetDevice());
 
+	//Prepare SSAO data
 	m_ssao = new ShaderSSAO(m_deviceManager->GetDevice());
 	m_specialBufferSSAOData.kernelSample = m_ssao->GetSampleKernel();
+	m_specialBufferSSAOData.sampleCount = 16;
+	m_specialBufferSSAOData.kernelRadius = 5.0f;
+
+	//Prepare BRDF data
+	m_specialBufferBRDFData.ndfType = static_cast<int>(m_ndfType);
+	m_specialBufferBRDFData.geometryType = static_cast<int>(m_geometryType);
+	m_specialBufferBRDFData.fresnelType = static_cast<int>(m_fresnelType);
+	m_specialBufferBRDFData.f0 = 0.0f;
 }
 
 void Renderer::CreateDeviceDependentResources()
 {
-	//CreateShaders("PS_BlinnPhong.hlsl");
-	//CreateShaders("PS_Lambert.hlsl");
 	CreateConstantBuffers();
-	//SetModelTarget(m_bunnyModel);
 }
 
 void Renderer::CreateWindowSizeDependentResources()
@@ -59,17 +69,6 @@ void Renderer::CreateWindowSizeDependentResources()
 
 void Renderer::Update()
 {
-	//DirectX::XMStoreFloat4x4(
-	//	&m_constantBufferData.world,
-	//	DirectX::XMMatrixTranspose(
-	//		DirectX::XMMatrixRotationY(
-	//			DirectX::XMConvertToRadians(
-	//				static_cast<float>(m_frameCount++)
-	//			)
-	//		)
-	//	)
-	//);
-
 	if (m_frameCount == MAXUINT) m_frameCount = 0;
 }
 
@@ -81,47 +80,65 @@ void Renderer::Render()
 
 	if (m_baseVertexShader && m_pixelShaderBunny)
 	{		
-		//m_deviceManager->SetBackBufferRenderTarget();
+		m_deviceManager->SetBackBufferRenderTarget();
 		//Input layout is the same for all vertex shaders for now
 		context->IASetInputLayout(m_inputLayout);
 
 		//m_renderTexture->SetAsActiveTarget(context, depthStencil, true, true);
 
 		//Create world matrix
-		DirectX::XMStoreFloat4x4(&m_constantBufferData.world, XMMatrixIdentity() * XMMatrixScaling(m_bunnyModel->m_scale, m_bunnyModel->m_scale, m_bunnyModel->m_scale));
-		MapResourceData();
-		SetConstantBuffers();
+		m_constantBufferData.world = XMMatrixIdentity();
+		m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixScaling(m_bunnyModel->m_scale, m_bunnyModel->m_scale, m_bunnyModel->m_scale));
+		m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixTranslation(0.0f, 0.0f, 0.0f));
+		m_constantBufferData.world = XMMatrixTranspose(m_constantBufferData.world);
 
-		RenderGBuffer(Renderer::GBufferType::Position);
-		RenderGBuffer(Renderer::GBufferType::Normal);
-		RenderGBuffer(Renderer::GBufferType::Depth);
-		RenderSSAO();
+		//RenderGBuffer(Renderer::GBufferType::Position);
+		//RenderGBuffer(Renderer::GBufferType::Normal);
+		//RenderGBuffer(Renderer::GBufferType::Depth);
+
+		//m_constantBufferData.world = XMMatrixIdentity();
+		//RenderSSAO();
 		//RenderToBackBuffer(m_normalBufferTexture);
-		return;
+		//return;
 
 		context->VSSetShader(m_baseVertexShader, NULL, 0);
 		context->PSSetShader(m_pixelShaderBunny, NULL, 0);
 
+		MapResourceData();
 		SetConstantBuffers();
+
+		if (m_specialBufferBRDF)
+		{
+			D3D11_MAPPED_SUBRESOURCE mappedResource;
+			const HRESULT result = context->Map(m_specialBufferBRDF, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
+			if (FAILED(result))
+				return;
+
+			SpecialBufferBRDFStruct* dataPtr = static_cast<SpecialBufferBRDFStruct*>(mappedResource.pData);
+
+			dataPtr->ndfType = static_cast<int>(m_ndfType);
+			dataPtr->geometryType = static_cast<int>(m_geometryType);
+			dataPtr->fresnelType = static_cast<int>(m_fresnelType);
+
+			dataPtr->hasNormal = static_cast<int>(m_normalResourceView != NULL);
+			dataPtr->hasRoughness = static_cast<int>(m_roughnessResourceView != NULL);
+			dataPtr->hasMetallic = static_cast<int>(m_metallicResourceView != NULL);
+
+			dataPtr->roughnessValue = 0.0f;
+			dataPtr->metallicValue = 1.0f;
+			dataPtr->f0 = m_specialBufferBRDFData.f0;
+
+			dataPtr->padding = XMFLOAT3{0,0,0};
+			context->Unmap(m_specialBufferBRDF, 0);
+
+			if (m_specialBufferBRDF) context->PSSetConstantBuffers(13, 1, &m_specialBufferBRDF);
+		}
+		if (m_roughnessResourceView) context->PSSetShaderResources(1, 1, &m_roughnessResourceView);
+		if (m_normalResourceView) context->PSSetShaderResources(2, 1, &m_normalResourceView);
+		if (m_metallicResourceView) context->PSSetShaderResources(3, 1, &m_metallicResourceView);
 
 		m_indexCount = m_bunnyModel->Render(context);
 		context->DrawIndexed(m_indexCount, 0, 0);
-
-		RenderToBackBuffer(m_renderTexture);
-		//static bool doOnce = false;
-		//if (doOnce)
-		//{
-		//	if (m_baseResource && m_deviceManager->GetDeviceContext())
-		//	{
-		//		doOnce = false;
-		//		ID3D11Resource* resource;
-		//		m_renderTexture->GetResourceView()->GetResource(&resource);
-		//		const HRESULT result = SaveWICTextureToFile(context, resource, GUID_ContainerFormatPng, L"SCREENSHOT.JPG");
-		//		if (FAILED(result))	{
-		//			assert(false);
-		//		}
-		//	}
-		//}
 	}
 }
 
@@ -210,6 +227,13 @@ HRESULT Renderer::CreateConstantBuffers()
 		return result;
 	}
 
+	constantBufferDesc.ByteWidth = sizeof(SpecialBufferBRDFStruct);
+	result = device->CreateBuffer(&constantBufferDesc, nullptr, &m_specialBufferBRDF);
+	if (FAILED(result))
+	{
+		return result;
+	}
+
 	return result;
 }
 
@@ -256,31 +280,14 @@ void Renderer::CreateViewAndPerspective()
 	target = { m_cameraPosition.x + target.m128_f32[0], m_cameraPosition.y + target.m128_f32[1], m_cameraPosition.z + target.m128_f32[2], 0.0f };
 
 	//Create view matrix
-	DirectX::XMStoreFloat4x4(
-		&m_constantBufferData.view,
-		DirectX::XMMatrixTranspose(
-			DirectX::XMMatrixLookAtLH(
-				eye,
-				target,
-				up
-			)
-		)
-	);
+	m_constantBufferData.view = DirectX::XMMatrixTranspose(DirectX::XMMatrixLookAtLH(eye, target, up));
 
 	//Create perspective matrix
-	DirectX::XMStoreFloat4x4(
-		&m_constantBufferData.projection,
-		DirectX::XMMatrixTranspose(
-			DirectX::XMMatrixPerspectiveFovLH(
-				DirectX::XMConvertToRadians(45),
-				m_deviceManager->GetAspectRatio(),
-				0.01f,
-				100.0f
-			)
-		)
-	);
+	constexpr float FOV = 3.14f / 4.0f;
+	const float aspectRatio = m_deviceManager->GetAspectRatio();
+	m_constantBufferData.projection = DirectX::XMMatrixTranspose(DirectX::XMMatrixPerspectiveFovLH(FOV, aspectRatio, 0.01f, 100.0f));
 	//Store projection matrix in SSAO as soon as it changes
-	m_specialBufferSSAOData.projectionMatrix = m_constantBufferData.projection;
+	//m_specialBufferSSAOData.projectionMatrix = m_constantBufferData.projection;
 }
 
 void Renderer::MapResourceData()
@@ -391,7 +398,7 @@ void Renderer::RenderGBuffer(Renderer::GBufferType type)
 	{
 	case Renderer::GBufferType::Position:
 		m_positionBufferTexture->SetAsActiveTarget(context, m_deviceManager->GetDepthStencil(), true, true, XMFLOAT4{ 0,0,0,0 });
-		context->VSSetShader(m_baseVertexShader, NULL, 0);
+		context->VSSetShader(m_vertexShaderViewPosition, NULL, 0);
 		context->PSSetShader(m_pixelShaderPositionBuffer, NULL, 0);
 		break;
 
@@ -411,6 +418,8 @@ void Renderer::RenderGBuffer(Renderer::GBufferType type)
 		return;
 	}
 
+	MapResourceData();
+	SetConstantBuffers();
 	m_indexCount = m_bunnyModel->Render(context);
 	context->DrawIndexed(m_indexCount, 0, 0);
 }
@@ -419,15 +428,49 @@ void Renderer::RenderSSAO()
 {
 	ID3D11DeviceContext* context = m_deviceManager->GetDeviceContext();
 
-	m_deviceManager->SetBackBufferRenderTarget();
+	m_ssaoBufferTexture->SetAsActiveTarget(context, m_deviceManager->GetDepthStencil(), true, false, XMFLOAT4{ 1,1,1,1 });
+	//m_deviceManager->SetBackBufferRenderTarget();
 	m_indexCount = m_backBufferQuadModel->Render(context);
 
 	context->VSSetShader(m_vertexShaderBackBuffer, NULL, 0);
 	context->PSSetShader(m_pixelShaderSSAO, NULL, 0);
 
+	D3D11_MAPPED_SUBRESOURCE mappedResource;
+	if (m_constantBuffer)
+	{
+		const HRESULT result = context->Map(m_constantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
+		if (FAILED(result))
+			return;
+
+		// Get a pointer to the data in the constant buffer.
+		ConstantBufferStruct* dataPtr = static_cast<ConstantBufferStruct*>(mappedResource.pData);
+
+		dataPtr->world = m_constantBufferData.world;
+		dataPtr->view = m_constantBufferData.view;
+		dataPtr->projection = m_constantBufferData.projection;
+		context->Unmap(m_constantBuffer, 0);
+
+		context->VSSetConstantBuffers(0, 1, &m_constantBuffer);
+	}
+
+	//MAP ADDITIONAL DATA
+	if (m_uberBuffer)
+	{
+		const HRESULT result = context->Map(m_uberBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
+		if (FAILED(result))
+			return;
+
+		UberBufferStruct* dataPtr = static_cast<UberBufferStruct*>(mappedResource.pData);
+
+		dataPtr->viewerPosition = m_uberBufferData.viewerPosition;
+		dataPtr->padding = m_uberBufferData.padding;
+		context->Unmap(m_uberBuffer, 0);
+
+		context->VSSetConstantBuffers(7, 1, &m_uberBuffer);
+	}
+
 	if (m_specialBufferSSAO)
 	{
-		D3D11_MAPPED_SUBRESOURCE mappedResource;
 		const HRESULT result = context->Map(m_specialBufferSSAO, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
 		if (FAILED(result))
 			return;
@@ -436,18 +479,49 @@ void Renderer::RenderSSAO()
 
 		dataPtr->kernelSample = m_specialBufferSSAOData.kernelSample;
 		dataPtr->projectionMatrix = m_specialBufferSSAOData.projectionMatrix;
+		dataPtr->kernelRadius = m_specialBufferSSAOData.kernelRadius;
+		dataPtr->sampleCount = m_specialBufferSSAOData.sampleCount;
+		dataPtr->padding = XMFLOAT2{ 0,0 };
 		context->Unmap(m_specialBufferSSAO, 0);
 
 		context->PSSetConstantBuffers(13, 1, &m_specialBufferSSAO);
 	}
 	if (m_baseSamplerState) context->PSSetSamplers(0, 1, &m_baseSamplerState);
 	auto noiseTex = m_ssao->GetShaderRersourceView();
-	auto depthTex = m_depthBufferTexture->GetResourceView();
+	//auto depthTex = m_depthBufferTexture->GetResourceView();
+	auto positionTex = m_positionBufferTexture->GetResourceView();
 	auto normalTex = m_normalBufferTexture->GetResourceView();
 
 	context->PSSetShaderResources(0, 1, &noiseTex);
-	context->PSSetShaderResources(1, 1, &depthTex);
+	context->PSSetShaderResources(1, 1, &positionTex);
 	context->PSSetShaderResources(2, 1, &normalTex);
 
 	context->DrawIndexed(m_indexCount, 0, 0);
+
+	/* Blur SSAO */
+	m_deviceManager->SetBackBufferRenderTarget();
+
+	m_indexCount = m_backBufferQuadModel->Render(context);
+
+	context->VSSetShader(m_vertexShaderBackBuffer, NULL, 0);
+	context->PSSetShader(m_pixelShaderBlurSSAO, NULL, 0);
+
+	auto ssaoTex = m_ssaoBufferTexture->GetResourceView();
+	if (m_baseSamplerState) context->PSSetSamplers(0, 1, &m_baseSamplerState);
+	context->PSSetShaderResources(0, 1, &ssaoTex);
+
+	context->DrawIndexed(m_indexCount, 0, 0);
+}
+
+void Renderer::SaveTextureToFile(RenderTexture * texture, const wchar_t* name)
+{
+	if (texture && m_deviceManager->GetDeviceContext())
+	{
+		ID3D11Resource* resource;
+		texture->GetResourceView()->GetResource(&resource);
+		const HRESULT result = SaveWICTextureToFile(m_deviceManager->GetDeviceContext(), resource, GUID_ContainerFormatPng, name);
+		if (FAILED(result))	{
+			assert(false);
+		}
+	}
 }

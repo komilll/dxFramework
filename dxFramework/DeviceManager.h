@@ -14,7 +14,8 @@ public:
 	HRESULT SetWindowedMode();
 
 	void ConfigureSamplerState(ID3D11SamplerState** samplerState, D3D11_TEXTURE_ADDRESS_MODE addressMode = D3D11_TEXTURE_ADDRESS_WRAP, D3D11_FILTER filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_COMPARISON_FUNC comparisonFunction = D3D11_COMPARISON_ALWAYS) const;
-	void TextureChooseWindow(ID3D11Resource** texture, ID3D11ShaderResourceView** textureView) const;
+	void TextureChooseWindow(ID3D11Resource** texture, ID3D11ShaderResourceView** textureView, std::string* pathToSave = NULL) const;
+	HRESULT LoadTextureFromFile(const wchar_t* wFilePath, ID3D11Resource** texture, ID3D11ShaderResourceView** textureView) const;
 	void UseViewport();
 	void SetBackBufferRenderTarget();
 
@@ -29,8 +30,6 @@ public:
 	void Present();
 
 private:
-	bool LoadTextureFromFile(wchar_t* wFilePath, ID3D11Resource** texture, ID3D11ShaderResourceView** textureView) const;
-
 	ID3D11Device* m_device;
 	ID3D11DeviceContext* m_deviceContext;
 	IDXGISwapChain* m_swapChain;
