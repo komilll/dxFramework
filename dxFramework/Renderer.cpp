@@ -12,12 +12,16 @@ Renderer::Renderer(std::shared_ptr<DeviceManager> deviceManager)
 	m_frameCount = 0;
 	m_deviceManager = deviceManager;
 	m_directionalLightBufferData.intensity = 1.0f;
-	m_directionalLightBufferData.direction = XMFLOAT3{ 0.0f, 1.0f, 1.75f };
+	//m_directionalLightBufferData.direction = XMFLOAT3{ 0.0f, 1.0f, 1.75f };
+	m_directionalLightBufferData.direction = XMFLOAT3{ 0.0f, 0.0f, -1.0f };
 	m_propertyBufferData.directionalLightColor = XMFLOAT3{ 1,1,1 };
 	m_propertyBufferData.roughness = 0.25f;
 
-	m_cameraPosition = XMFLOAT3{ -13.0f, 9.5f, 26.5f };
-	m_cameraRotation = XMFLOAT3{ 19.0f, -206.0f, 180.0f};
+	//m_cameraPosition = XMFLOAT3{ -13.0f, 9.5f, 26.5f };
+	//m_cameraRotation = XMFLOAT3{ 19.0f, -206.0f, 180.0f};
+
+	m_cameraPosition = XMFLOAT3{ 15.0f, 22.0f, -70.0f };
+	m_cameraRotation = XMFLOAT3{ 0.0f, 0.0f, 180.0f};
 
 	m_deviceManager->ConfigureSamplerState(&m_baseSamplerState);// , D3D11_TEXTURE_ADDRESS_WRAP, D3D11_FILTER_MIN_MAG_LINEAR_MIP_POINT);
 
@@ -54,7 +58,7 @@ Renderer::Renderer(std::shared_ptr<DeviceManager> deviceManager)
 	m_specialBufferBRDFData.ndfType = static_cast<int>(m_ndfType);
 	m_specialBufferBRDFData.geometryType = static_cast<int>(m_geometryType);
 	m_specialBufferBRDFData.fresnelType = static_cast<int>(m_fresnelType);
-	m_specialBufferBRDFData.f0 = 0.0f;
+	m_specialBufferBRDFData.f0 = 0.92f;
 }
 
 void Renderer::CreateDeviceDependentResources()
@@ -107,38 +111,93 @@ void Renderer::Render()
 		MapResourceData();
 		SetConstantBuffers();
 
-		if (m_specialBufferBRDF)
-		{
-			D3D11_MAPPED_SUBRESOURCE mappedResource;
-			const HRESULT result = context->Map(m_specialBufferBRDF, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
-			if (FAILED(result))
-				return;
+		//if (m_specialBufferBRDF)
+		//{
+		//	D3D11_MAPPED_SUBRESOURCE mappedResource;
+		//	const HRESULT result = context->Map(m_specialBufferBRDF, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
+		//	if (FAILED(result))
+		//		return;
 
-			SpecialBufferBRDFStruct* dataPtr = static_cast<SpecialBufferBRDFStruct*>(mappedResource.pData);
+		//	SpecialBufferBRDFStruct* dataPtr = static_cast<SpecialBufferBRDFStruct*>(mappedResource.pData);
 
-			dataPtr->ndfType = static_cast<int>(m_ndfType);
-			dataPtr->geometryType = static_cast<int>(m_geometryType);
-			dataPtr->fresnelType = static_cast<int>(m_fresnelType);
+		//	dataPtr->ndfType = static_cast<int>(m_ndfType);
+		//	dataPtr->geometryType = static_cast<int>(m_geometryType);
+		//	dataPtr->fresnelType = static_cast<int>(m_fresnelType);
 
-			dataPtr->hasNormal = static_cast<int>(m_normalResourceView != NULL);
-			dataPtr->hasRoughness = static_cast<int>(m_roughnessResourceView != NULL);
-			dataPtr->hasMetallic = static_cast<int>(m_metallicResourceView != NULL);
+		//	dataPtr->hasNormal = static_cast<int>(m_normalResourceView != NULL);
+		//	dataPtr->hasRoughness = static_cast<int>(m_roughnessResourceView != NULL);
+		//	dataPtr->hasMetallic = static_cast<int>(m_metallicResourceView != NULL);
 
-			dataPtr->roughnessValue = 0.0f;
-			dataPtr->metallicValue = 1.0f;
-			dataPtr->f0 = m_specialBufferBRDFData.f0;
+		//	dataPtr->roughnessValue = 0.0f;
+		//	dataPtr->metallicValue = 1.0f;
+		//	dataPtr->f0 = m_specialBufferBRDFData.f0;
 
-			dataPtr->padding = XMFLOAT3{0,0,0};
-			context->Unmap(m_specialBufferBRDF, 0);
+		//	dataPtr->padding = XMFLOAT3{0,0,0};
+		//	context->Unmap(m_specialBufferBRDF, 0);
 
-			if (m_specialBufferBRDF) context->PSSetConstantBuffers(13, 1, &m_specialBufferBRDF);
-		}
+		//	if (m_specialBufferBRDF) context->PSSetConstantBuffers(13, 1, &m_specialBufferBRDF);
+		//}
 		if (m_roughnessResourceView) context->PSSetShaderResources(1, 1, &m_roughnessResourceView);
 		if (m_normalResourceView) context->PSSetShaderResources(2, 1, &m_normalResourceView);
 		if (m_metallicResourceView) context->PSSetShaderResources(3, 1, &m_metallicResourceView);
 
 		m_indexCount = m_bunnyModel->Render(context);
-		context->DrawIndexed(m_indexCount, 0, 0);
+
+		for (int x = 0; x < 5; ++x)
+		{
+			for (int y = 0; y < 5; ++y)
+			{
+				m_constantBufferData.world = XMMatrixIdentity();
+				m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixScaling(m_bunnyModel->m_scale, m_bunnyModel->m_scale, m_bunnyModel->m_scale));
+				m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixTranslation(x * 10.0f, y * 10.0f, 0.0f));
+				m_constantBufferData.world = XMMatrixTranspose(m_constantBufferData.world);
+				// Lock the constant buffer so it can be written to.
+				if (m_constantBuffer)
+				{
+					D3D11_MAPPED_SUBRESOURCE mappedResource;
+					const HRESULT result = context->Map(m_constantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
+					if (FAILED(result))
+						return;
+
+					// Get a pointer to the data in the constant buffer.
+					ConstantBufferStruct* dataPtr = static_cast<ConstantBufferStruct*>(mappedResource.pData);
+
+					dataPtr->world = m_constantBufferData.world;
+					dataPtr->view = m_constantBufferData.view;
+					dataPtr->projection = m_constantBufferData.projection;
+					context->Unmap(m_constantBuffer, 0);
+				}
+
+				if (m_specialBufferBRDF)
+				{
+					D3D11_MAPPED_SUBRESOURCE mappedResource;
+					const HRESULT result = context->Map(m_specialBufferBRDF, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
+					if (FAILED(result))
+						return;
+
+					SpecialBufferBRDFStruct* dataPtr = static_cast<SpecialBufferBRDFStruct*>(mappedResource.pData);
+
+					dataPtr->ndfType = static_cast<int>(m_ndfType);
+					dataPtr->geometryType = static_cast<int>(m_geometryType);
+					dataPtr->fresnelType = static_cast<int>(m_fresnelType);
+
+					dataPtr->hasNormal = static_cast<int>(m_normalResourceView != NULL);
+					dataPtr->hasRoughness = static_cast<int>(m_roughnessResourceView != NULL);
+					dataPtr->hasMetallic = static_cast<int>(m_metallicResourceView != NULL);
+
+					dataPtr->roughnessValue = max(static_cast<float>(x) * 0.25f, 0.001f);
+					dataPtr->metallicValue = static_cast<float>(y) * 0.25f;
+					dataPtr->f0 = max(m_specialBufferBRDFData.f0, 0.001f);
+
+					dataPtr->padding = XMFLOAT3{ 0,0,0 };
+					context->Unmap(m_specialBufferBRDF, 0);
+
+					if (m_specialBufferBRDF) context->PSSetConstantBuffers(13, 1, &m_specialBufferBRDF);
+				}
+
+				context->DrawIndexed(m_indexCount, 0, 0);
+			}
+		}
 	}
 }
 

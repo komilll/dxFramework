@@ -8,6 +8,7 @@ class SaveSession
 {
 public:
 	void UpdateSavedData();
+	void DeleteSavedData();
 	void TryToLoadTextures();
 
 public:

@@ -15,8 +15,8 @@ GuiManager::GuiManager(std::shared_ptr<DeviceManager> deviceManager, std::shared
 
 void GuiManager::DrawImGUI()
 {
-	constexpr std::array<const char* const, static_cast<unsigned int>(Renderer::NdfType::MAX)> ndfTypeNames{ "Beckmann", "GGX", "Blinn-Phong" };
-	constexpr std::array<const char* const, static_cast<unsigned int>(Renderer::GeometryType::MAX)> geomTypeNames{ "Implicit", "Neumann", "Cook-Torrance", "Kelemen", "Smith", "Beckmann", "GGX", "Schlick-Beckmann", "Schlick-GGX" };
+	constexpr std::array<const char* const, static_cast<unsigned int>(Renderer::NdfType::MAX)> ndfTypeNames{ "Beckmann_N", "GGX_N", "Blinn-Phong" };
+	constexpr std::array<const char* const, static_cast<unsigned int>(Renderer::GeometryType::MAX)> geomTypeNames{ "Implicit", "Neumann", "Cook-Torrance", "Kelemen", "Beckmann", "GGX", "Schlick-Beckmann", "Schlick-GGX" };
 	constexpr std::array<const char* const, static_cast<unsigned int>(Renderer::FresnelType::MAX)> fresnelTypeNames{ "None", "Schlick", "CT" };
 
 	// Start the Dear ImGui frame
@@ -56,6 +56,27 @@ void GuiManager::DrawImGUI()
 		if (ImGui::Button("Select METALLIC")) {
 			m_deviceManager->TextureChooseWindow(&m_renderer->m_metallicResource, &m_renderer->m_metallicResourceView, &m_saveSession->m_metallicTextureName);
 			m_saveSession->UpdateSavedData();
+		}
+		if (ImGui::Button("Reset ALL")) {
+			if (m_renderer->m_baseResource) m_renderer->m_baseResource->Release();
+			if (m_renderer->m_baseResourceView) m_renderer->m_baseResourceView->Release();
+			if (m_renderer->m_normalResource) m_renderer->m_normalResource->Release();
+			if (m_renderer->m_normalResourceView) m_renderer->m_normalResourceView->Release();
+			if (m_renderer->m_roughnessResource) m_renderer->m_roughnessResource->Release();
+			if (m_renderer->m_roughnessResourceView) m_renderer->m_roughnessResourceView->Release();
+			if (m_renderer->m_metallicResource) m_renderer->m_metallicResource->Release();
+			if (m_renderer->m_metallicResourceView) m_renderer->m_metallicResourceView->Release();
+
+			m_renderer->m_baseResource = NULL;
+			m_renderer->m_baseResourceView = NULL;
+			m_renderer->m_normalResource = NULL;
+			m_renderer->m_normalResourceView = NULL;
+			m_renderer->m_roughnessResource = NULL;
+			m_renderer->m_roughnessResourceView = NULL;
+			m_renderer->m_metallicResource = NULL;
+			m_renderer->m_metallicResourceView = NULL;
+
+			m_saveSession->DeleteSavedData();
 		}
 	}
 	ImGui::End();

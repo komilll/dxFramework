@@ -7,11 +7,10 @@
 #define GEOM_NEUMANN            1
 #define GEOM_COOK_TORRANCE      2
 #define GEOM_KELEMEN            3
-#define GEOM_SMITH              4
-#define GEOM_BECKMANN           5
-#define GEOM_GGX                6
-#define GEOM_SCHLICK_BECKMANN   7
-#define GEOM_SCHLICK_GGX        8
+#define GEOM_BECKMANN           4
+#define GEOM_GGX                5
+#define GEOM_SCHLICK_BECKMANN   6
+#define GEOM_SCHLICK_GGX        7
 
 #define FRESNEL_NONE    0
 #define FRESNEL_SCHLICK 1

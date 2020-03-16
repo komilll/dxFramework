@@ -1,8 +1,8 @@
 ALBEDO
-C:\Users\Kamil\Documents\dxFramework\dxFramework\Resources\Gold_Nugget_001_SD\Gold_Nugget_001_COLOR.jpg
+
 NORMAL
-C:\Users\Kamil\Documents\dxFramework\dxFramework\Resources\Gold_Nugget_001_SD\Gold_Nugget_001_NORM.jpg
+C:\Users\Kamil\Documents\dxFramework\dxFramework\Resources\Pebles_001_NRM.png
 ROUGHNESS
-C:\Users\Kamil\Documents\dxFramework\dxFramework\Resources\Gold_Nugget_001_SD\Gold_Nugget_001_ROUGH.jpg
+
 METALLIC
 

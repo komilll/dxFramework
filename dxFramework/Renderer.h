@@ -23,7 +23,7 @@ public:
 	};
 
 	enum class GeometryType : int {
-		Implicit, Neumann, CookTorrance, Kelemen, Smith, Beckmann, GGX, SchlickBeckmann, SchlickGGX, MAX
+		Implicit, Neumann, CookTorrance, Kelemen, Beckmann, GGX, SchlickBeckmann, SchlickGGX, MAX
 	};
 
 	enum class FresnelType : int {

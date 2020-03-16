@@ -14,6 +14,15 @@ void SaveSession::UpdateSavedData()
 	}
 }
 
+void SaveSession::DeleteSavedData()
+{
+	m_albedoTextureName = "";
+	m_normalTextureName = "";
+	m_roughnessTextureName = "";
+	m_metallicTextureName = "";
+	UpdateSavedData();
+}
+
 void SaveSession::TryToLoadTextures()
 {
 	std::string line;
