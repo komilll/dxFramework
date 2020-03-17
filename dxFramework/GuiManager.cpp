@@ -78,6 +78,11 @@ void GuiManager::DrawImGUI()
 
 			m_saveSession->DeleteSavedData();
 		}
+		if (ImGui::Button("Freeze camera"))
+		{
+			m_renderer->FREEZE_CAMERA = !m_renderer->FREEZE_CAMERA;
+			m_renderer->CreateViewAndPerspective();
+		}
 	}
 	ImGui::End();
 
@@ -124,7 +129,8 @@ void GuiManager::DrawImGUI()
 		ImGui::ColorPicker3("Color", &m_renderer->m_propertyBufferData.directionalLightColor.x);
 
 		ImGui::LabelText("", "Object properties");
-		ImGui::DragFloat("Roughness", &m_renderer->m_propertyBufferData.roughness, 0.01f, 0.0f, 1.0f, "%.2f");
+		ImGui::DragFloat("Roughness", &m_renderer->m_specialBufferBRDFData.roughnessValue, 0.01f, 0.0f, 1.0f, "%.2f");
+		ImGui::DragFloat("Metallic", &m_renderer->m_specialBufferBRDFData.metallicValue, 0.01f, 0.0f, 1.0f, "%.2f");
 		ImGui::DragFloat("F0", &m_renderer->m_specialBufferBRDFData.f0, 0.001f, 0.0f, 1.0f, "%.3f");
 
 		ImGui::DragInt("Sample count", &m_renderer->m_specialBufferSSAOData.sampleCount, 0.25f, 1, 64);

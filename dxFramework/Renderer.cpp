@@ -17,9 +17,11 @@ Renderer::Renderer(std::shared_ptr<DeviceManager> deviceManager)
 	m_propertyBufferData.directionalLightColor = XMFLOAT3{ 1,1,1 };
 	m_propertyBufferData.roughness = 0.25f;
 
+	//Presentation of suzanne
 	//m_cameraPosition = XMFLOAT3{ -13.0f, 9.5f, 26.5f };
 	//m_cameraRotation = XMFLOAT3{ 19.0f, -206.0f, 180.0f};
 
+	//Presentation of spheres
 	m_cameraPosition = XMFLOAT3{ 15.0f, 22.0f, -70.0f };
 	m_cameraRotation = XMFLOAT3{ 0.0f, 0.0f, 180.0f};
 
@@ -59,6 +61,8 @@ Renderer::Renderer(std::shared_ptr<DeviceManager> deviceManager)
 	m_specialBufferBRDFData.geometryType = static_cast<int>(m_geometryType);
 	m_specialBufferBRDFData.fresnelType = static_cast<int>(m_fresnelType);
 	m_specialBufferBRDFData.f0 = 0.92f;
+	m_specialBufferBRDFData.metallicValue = 1.0f;
+	m_specialBufferBRDFData.roughnessValue = 0.0f;
 }
 
 void Renderer::CreateDeviceDependentResources()
@@ -124,15 +128,16 @@ void Renderer::Render()
 		//	dataPtr->geometryType = static_cast<int>(m_geometryType);
 		//	dataPtr->fresnelType = static_cast<int>(m_fresnelType);
 
+		//	dataPtr->hasAlbedo = static_cast<int>(m_baseResourceView != NULL);
 		//	dataPtr->hasNormal = static_cast<int>(m_normalResourceView != NULL);
 		//	dataPtr->hasRoughness = static_cast<int>(m_roughnessResourceView != NULL);
 		//	dataPtr->hasMetallic = static_cast<int>(m_metallicResourceView != NULL);
 
-		//	dataPtr->roughnessValue = 0.0f;
-		//	dataPtr->metallicValue = 1.0f;
+		//	dataPtr->roughnessValue = m_specialBufferBRDFData.roughnessValue;
+		//	dataPtr->metallicValue = m_specialBufferBRDFData.metallicValue;
 		//	dataPtr->f0 = m_specialBufferBRDFData.f0;
 
-		//	dataPtr->padding = XMFLOAT3{0,0,0};
+		//	dataPtr->padding = XMFLOAT2{0,0};
 		//	context->Unmap(m_specialBufferBRDF, 0);
 
 		//	if (m_specialBufferBRDF) context->PSSetConstantBuffers(13, 1, &m_specialBufferBRDF);
@@ -142,7 +147,8 @@ void Renderer::Render()
 		if (m_metallicResourceView) context->PSSetShaderResources(3, 1, &m_metallicResourceView);
 
 		m_indexCount = m_bunnyModel->Render(context);
-
+		//context->DrawIndexed(m_indexCount, 0, 0);
+		//return;
 		for (int x = 0; x < 5; ++x)
 		{
 			for (int y = 0; y < 5; ++y)
@@ -181,15 +187,16 @@ void Renderer::Render()
 					dataPtr->geometryType = static_cast<int>(m_geometryType);
 					dataPtr->fresnelType = static_cast<int>(m_fresnelType);
 
+					dataPtr->hasAlbedo = static_cast<int>(m_baseResourceView != NULL);
 					dataPtr->hasNormal = static_cast<int>(m_normalResourceView != NULL);
 					dataPtr->hasRoughness = static_cast<int>(m_roughnessResourceView != NULL);
 					dataPtr->hasMetallic = static_cast<int>(m_metallicResourceView != NULL);
 
 					dataPtr->roughnessValue = max(static_cast<float>(x) * 0.25f, 0.001f);
 					dataPtr->metallicValue = static_cast<float>(y) * 0.25f;
-					dataPtr->f0 = max(m_specialBufferBRDFData.f0, 0.001f);
+					dataPtr->f0 = min(max(m_specialBufferBRDFData.f0, 0.001f), 0.99999f);
 
-					dataPtr->padding = XMFLOAT3{ 0,0,0 };
+					dataPtr->padding = XMFLOAT2{ 0,0 };
 					context->Unmap(m_specialBufferBRDF, 0);
 
 					if (m_specialBufferBRDF) context->PSSetConstantBuffers(13, 1, &m_specialBufferBRDF);
@@ -308,7 +315,10 @@ void Renderer::CreateViewAndPerspective()
 	constexpr float conv{ 0.0174532925f };
 
 	//Update camera position for shader buffer
-	m_uberBufferData.viewerPosition = m_cameraPosition;
+	if (!FREEZE_CAMERA)
+	{
+		m_uberBufferData.viewerPosition = m_cameraPosition;
+	}
 
 	// Create the rotation matrix from the yaw, pitch, and roll values.
 	const XMMATRIX rotationMatrix = XMMatrixRotationRollPitchYaw(m_cameraRotation.x * conv, m_cameraRotation.y * conv, m_cameraRotation.z * conv);

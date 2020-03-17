@@ -1,7 +1,7 @@
 ALBEDO
 
 NORMAL
-C:\Users\Kamil\Documents\dxFramework\dxFramework\Resources\Pebles_001_NRM.png
+
 ROUGHNESS
 
 METALLIC

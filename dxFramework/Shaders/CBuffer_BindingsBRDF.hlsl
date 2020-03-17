@@ -7,6 +7,7 @@ cbuffer SpecialBufferBRDF : register(b13)
 	int g_geometryType;
 	int g_fresnelType;
 
+	int g_hasAlbedo;
 	int g_hasNormal;
 	int g_hasRoughness;
 	int g_hasMetallic;

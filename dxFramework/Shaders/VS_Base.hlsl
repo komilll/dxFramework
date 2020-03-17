@@ -30,7 +30,7 @@ PixelInputType main(VertexInputType input)
 	output.position = float4(input.position, 1.0f);
 	float4 positionWS = mul(output.position, worldMatrix);
 	
-	output.pointToLight.xyz = g_directionalLightDirection;
+	output.pointToLight.xyz = normalize(g_directionalLightDirection);
 	output.pointToLight.w = g_directionalLightIntensity;
 	
 	output.position = mul(positionWS, viewMatrix);
@@ -41,7 +41,7 @@ PixelInputType main(VertexInputType input)
 	output.binormal = 	normalize( mul(input.binormal, (float3x3)worldMatrix) );
 
 	output.viewRay.xyz = positionWS.xyz - g_viewerPosition;
-	output.viewDir.xyz = normalize(g_viewerPosition - positionWS.xyz);
+	output.viewDir.xyz = normalize(g_viewerPosition.xyz - positionWS.xyz);
 
 	// output.viewRay.xyz = output.position.xyz - g_viewerPosition;
 	// output.viewDir.xyz = output.position.xyz - g_directionalLightDirection;

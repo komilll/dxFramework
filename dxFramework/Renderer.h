@@ -59,10 +59,13 @@ private:
 	void SaveTextureToFile(RenderTexture * texture, const wchar_t* name);
 
 private:
+//DEBUG SETTINGS
+	bool FREEZE_CAMERA = false;
+
 //Rendering settings
 	NdfType m_ndfType = NdfType::GGX;
 	GeometryType m_geometryType = GeometryType::GGX;
-	FresnelType m_fresnelType = FresnelType::None;
+	FresnelType m_fresnelType = FresnelType::CookTorrance;
 
 //Buffers and rendering data
 	std::shared_ptr<DeviceManager> m_deviceManager;
@@ -102,13 +105,14 @@ private:
 		int ndfType;
 		int geometryType;
 		int fresnelType;
+		int hasAlbedo;
 		int hasNormal;
 		int hasRoughness;
 		int hasMetallic;
 		float roughnessValue;
 		float metallicValue;
 		float f0;
-		XMFLOAT3 padding;
+		XMFLOAT2 padding;
 	} SpecialBufferBRDFStruct;
 	static_assert((sizeof(SpecialBufferBRDFStruct) % 16) == 0, "SpecialBufferBRDFStruct size must be 16-byte aligned");
 
