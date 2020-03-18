@@ -17,7 +17,8 @@ void GuiManager::DrawImGUI()
 {
 	constexpr std::array<const char* const, static_cast<unsigned int>(Renderer::NdfType::MAX)> ndfTypeNames{ "Beckmann_N", "GGX_N", "Blinn-Phong" };
 	constexpr std::array<const char* const, static_cast<unsigned int>(Renderer::GeometryType::MAX)> geomTypeNames{ "Implicit", "Neumann", "Cook-Torrance", "Kelemen", "Beckmann", "GGX", "Schlick-Beckmann", "Schlick-GGX" };
-	constexpr std::array<const char* const, static_cast<unsigned int>(Renderer::FresnelType::MAX)> fresnelTypeNames{ "None", "Schlick", "CT" };
+	constexpr std::array<const char* const, static_cast<unsigned int>(Renderer::FresnelType::MAX)> fresnelTypeNames{ "None_F", "Schlick", "CT" };
+	constexpr std::array<const char* const, static_cast<unsigned int>(Renderer::DebugType::MAX)> debugTypeNames{ "None_", "Diffuse", "Specular", "Albedo", "Normal", "Roughness", "Metallic", "Normal Distribution", "Geometry Shadowing", "Fresnel" };
 
 	// Start the Dear ImGui frame
 	ImGui_ImplDX11_NewFrame();
@@ -118,6 +119,17 @@ void GuiManager::DrawImGUI()
 				}
 			}
 		}
+		if (ImGui::CollapsingHeader("Debug type"))
+		{
+			for (size_t i = 0; i < debugTypeNames.size(); ++i)
+			{
+				if (ImGui::Selectable(debugTypeNames[i], static_cast<int>(m_renderer->m_debugType) == i))
+				{
+					m_renderer->m_debugType = static_cast<Renderer::DebugType>(i);
+				}
+			}
+		}
+
 		//ImGui::ListBox("Normal distribution function", reinterpret_cast<int*>(&m_renderer->m_ndfType), ndfTypeNames, static_cast<int>(Renderer::NdfType::MAX));
 	}
 	ImGui::End();
@@ -131,7 +143,7 @@ void GuiManager::DrawImGUI()
 		ImGui::LabelText("", "Object properties");
 		ImGui::DragFloat("Roughness", &m_renderer->m_specialBufferBRDFData.roughnessValue, 0.01f, 0.0f, 1.0f, "%.2f");
 		ImGui::DragFloat("Metallic", &m_renderer->m_specialBufferBRDFData.metallicValue, 0.01f, 0.0f, 1.0f, "%.2f");
-		ImGui::DragFloat("F0", &m_renderer->m_specialBufferBRDFData.f0, 0.001f, 0.0f, 1.0f, "%.3f");
+		ImGui::DragFloat("F0", &m_renderer->m_specialBufferBRDFData.f0, 0.001f, 0.0f, 3.0f, "%.3f");
 
 		ImGui::DragInt("Sample count", &m_renderer->m_specialBufferSSAOData.sampleCount, 0.25f, 1, 64);
 		ImGui::DragFloat("Kernel radius", &m_renderer->m_specialBufferSSAOData.kernelRadius, 0.05f, 0.01f, 50.0f, "%.2f");

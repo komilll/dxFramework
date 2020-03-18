@@ -30,6 +30,10 @@ public:
 		None, Schlick, CookTorrance, MAX
 	};
 
+	enum class DebugType : int {
+		None, Diffuse, Specular, Albedo, Normal, Roughness, Metallic, NormalDistribution, GeomtetryShadowing, Fresnel, MAX
+	};
+
 public:
 	friend class GuiManager;
 	Renderer() = default;
@@ -39,6 +43,7 @@ public:
 	void CreateWindowSizeDependentResources();
 	void Update();
 	void Render();
+	void PrepareScreenshotFrame();
 
 	void AddCameraPosition(float x, float y, float z);
 	void AddCameraPosition(XMFLOAT3 addPos);
@@ -52,6 +57,9 @@ private:
 	void CreateViewAndPerspective();
 	void MapResourceData();
 	void SetConstantBuffers();
+
+	void CreateSkyboxTexture();
+
 	void RenderToBackBuffer(RenderTexture* texture);
 	void RenderGBuffer(Renderer::GBufferType type);
 	void RenderSSAO();
@@ -61,11 +69,13 @@ private:
 private:
 //DEBUG SETTINGS
 	bool FREEZE_CAMERA = false;
+	bool DO_SCREENSHOT_NEXT_FRAME = false;
 
 //Rendering settings
 	NdfType m_ndfType = NdfType::GGX;
 	GeometryType m_geometryType = GeometryType::GGX;
 	FresnelType m_fresnelType = FresnelType::CookTorrance;
+	DebugType m_debugType = DebugType::None;
 
 //Buffers and rendering data
 	std::shared_ptr<DeviceManager> m_deviceManager;
@@ -112,7 +122,9 @@ private:
 		float roughnessValue;
 		float metallicValue;
 		float f0;
-		XMFLOAT2 padding;
+		int debugType;
+
+		float padding;
 	} SpecialBufferBRDFStruct;
 	static_assert((sizeof(SpecialBufferBRDFStruct) % 16) == 0, "SpecialBufferBRDFStruct size must be 16-byte aligned");
 
@@ -143,6 +155,8 @@ private:
 
 	//Shader data
 	ID3D11SamplerState* m_baseSamplerState				= NULL;
+	ID3D11Texture2D* m_skyboxResource					= NULL;
+	ID3D11ShaderResourceView* m_skyboxResourceView		= NULL;
 	ID3D11Resource* m_baseResource						= NULL;
 	ID3D11ShaderResourceView* m_baseResourceView		= NULL;
 	ID3D11Resource* m_normalResource					= NULL;

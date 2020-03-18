@@ -13,7 +13,7 @@ Renderer::Renderer(std::shared_ptr<DeviceManager> deviceManager)
 	m_deviceManager = deviceManager;
 	m_directionalLightBufferData.intensity = 1.0f;
 	//m_directionalLightBufferData.direction = XMFLOAT3{ 0.0f, 1.0f, 1.75f };
-	m_directionalLightBufferData.direction = XMFLOAT3{ 0.0f, 0.0f, -1.0f };
+	m_directionalLightBufferData.direction = XMFLOAT3{ 0.0f, 0.0f, 1.0f };
 	m_propertyBufferData.directionalLightColor = XMFLOAT3{ 1,1,1 };
 	m_propertyBufferData.roughness = 0.25f;
 
@@ -63,6 +63,9 @@ Renderer::Renderer(std::shared_ptr<DeviceManager> deviceManager)
 	m_specialBufferBRDFData.f0 = 0.92f;
 	m_specialBufferBRDFData.metallicValue = 1.0f;
 	m_specialBufferBRDFData.roughnessValue = 0.0f;
+	m_specialBufferBRDFData.debugType = static_cast<int>(m_debugType);
+
+	CreateSkyboxTexture();
 }
 
 void Renderer::CreateDeviceDependentResources()
@@ -88,11 +91,11 @@ void Renderer::Render()
 
 	if (m_baseVertexShader && m_pixelShaderBunny)
 	{		
-		m_deviceManager->SetBackBufferRenderTarget();
+		//m_deviceManager->SetBackBufferRenderTarget();
 		//Input layout is the same for all vertex shaders for now
 		context->IASetInputLayout(m_inputLayout);
 
-		//m_renderTexture->SetAsActiveTarget(context, depthStencil, true, true);
+		m_renderTexture->SetAsActiveTarget(context, depthStencil, true, true);
 
 		//Create world matrix
 		m_constantBufferData.world = XMMatrixIdentity();
@@ -196,7 +199,9 @@ void Renderer::Render()
 					dataPtr->metallicValue = static_cast<float>(y) * 0.25f;
 					dataPtr->f0 = min(max(m_specialBufferBRDFData.f0, 0.001f), 0.99999f);
 
-					dataPtr->padding = XMFLOAT2{ 0,0 };
+					dataPtr->debugType = static_cast<int>(m_debugType);
+
+					dataPtr->padding = 0;
 					context->Unmap(m_specialBufferBRDF, 0);
 
 					if (m_specialBufferBRDF) context->PSSetConstantBuffers(13, 1, &m_specialBufferBRDF);
@@ -205,7 +210,21 @@ void Renderer::Render()
 				context->DrawIndexed(m_indexCount, 0, 0);
 			}
 		}
+
+		RenderToBackBuffer(m_renderTexture);
+		if (DO_SCREENSHOT_NEXT_FRAME)
+		{
+			DO_SCREENSHOT_NEXT_FRAME = false;
+			std::string filename = "Screenshots/ss_" + Framework::currentDateTime() + ".png";
+			std::wstring wFilename{ filename.begin(), filename.end() };
+			SaveTextureToFile(m_renderTexture, wFilename.c_str());
+		}
 	}
+}
+
+void Renderer::PrepareScreenshotFrame()
+{
+	DO_SCREENSHOT_NEXT_FRAME = true;
 }
 
 void Renderer::AddCameraPosition(float x, float y, float z)
@@ -434,6 +453,65 @@ void Renderer::SetConstantBuffers()
 
 	if (m_baseSamplerState) context->PSSetSamplers(0, 1, &m_baseSamplerState);
 	if (m_baseResourceView) context->PSSetShaderResources(0, 1, &m_baseResourceView);
+}
+
+void Renderer::CreateSkyboxTexture()
+{
+	constexpr int width = 2048;
+	constexpr int height = 2048;
+	//ID3D11Resource *textures[6]{ nullptr,nullptr,nullptr,nullptr,nullptr,nullptr };
+	//ID3D11ShaderResourceView *textureViews[6]{ nullptr,nullptr,nullptr,nullptr,nullptr,nullptr };
+
+	std::array<ID3D11Resource*, 6> textures;
+	std::array<ID3D11ShaderResourceView*, 6> textureViews;
+
+	m_deviceManager->LoadTextureFromFile(L"Resources/Skyboxes/posx", &textures[0], &textureViews[0]);
+	m_deviceManager->LoadTextureFromFile(L"Resources/Skyboxes/negx", &textures[1], &textureViews[1]);
+	m_deviceManager->LoadTextureFromFile(L"Resources/Skyboxes/posy", &textures[2], &textureViews[2]);
+	m_deviceManager->LoadTextureFromFile(L"Resources/Skyboxes/negy", &textures[3], &textureViews[3]);
+	m_deviceManager->LoadTextureFromFile(L"Resources/Skyboxes/posz", &textures[4], &textureViews[4]);
+	m_deviceManager->LoadTextureFromFile(L"Resources/Skyboxes/negz", &textures[5], &textureViews[5]);
+
+	D3D11_TEXTURE2D_DESC texDesc;
+	texDesc.Width = width;
+	texDesc.Height = height;
+	texDesc.MipLevels = 1;
+	texDesc.ArraySize = 6;
+	texDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	texDesc.CPUAccessFlags = 0;
+	texDesc.SampleDesc.Count = 1;
+	texDesc.SampleDesc.Quality = 0;
+	texDesc.Usage = D3D11_USAGE_DEFAULT;
+	texDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+	texDesc.CPUAccessFlags = 0;
+	texDesc.MiscFlags = D3D11_RESOURCE_MISC_TEXTURECUBE;
+
+	D3D11_SHADER_RESOURCE_VIEW_DESC SMViewDesc;
+	SMViewDesc.Format = texDesc.Format;
+	SMViewDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURECUBE;
+	SMViewDesc.TextureCube.MipLevels = texDesc.MipLevels;
+	SMViewDesc.TextureCube.MostDetailedMip = 0;
+
+	D3D11_SUBRESOURCE_DATA skyboxFacesData[6];
+
+	for (int cubeMapFaceIndex = 0; cubeMapFaceIndex < 6; cubeMapFaceIndex++)
+	{
+		skyboxFacesData[cubeMapFaceIndex].pSysMem = textures;
+		skyboxFacesData[cubeMapFaceIndex].SysMemPitch = width * 4;
+		skyboxFacesData[cubeMapFaceIndex].SysMemSlicePitch = 0;
+	}
+
+	HRESULT result = m_deviceManager->GetDevice()->CreateTexture2D(&texDesc, skyboxFacesData, &m_skyboxResource);
+	if (FAILED(result))
+	{
+		assert(false);
+	}
+
+	result = m_deviceManager->GetDevice()->CreateShaderResourceView(m_skyboxResource, &SMViewDesc, &m_skyboxResourceView);
+	if (FAILED(result))
+	{
+		assert(false);
+	}
 }
 
 void Renderer::RenderToBackBuffer(RenderTexture * texture)

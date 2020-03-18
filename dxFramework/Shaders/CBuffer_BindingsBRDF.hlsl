@@ -16,7 +16,9 @@ cbuffer SpecialBufferBRDF : register(b13)
 	float g_metallicValue;
 	float g_f0;
 
-	float3 g_paddingSpecialBufferBRDF;
+	int g_debugType;
+	
+	float g_paddingSpecialBufferBRDF;
 };
 
 #endif //_BRDF_BINDINGS_HLSL_

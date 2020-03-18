@@ -105,6 +105,18 @@ HRESULT Main::Run(std::shared_ptr<DeviceManager> deviceManager, std::shared_ptr<
 				//Leave loop and cleanup system
 				break;
 			}
+			else if (m_inputManager->IsKeyDown(VK_F1))
+			{
+				//Do screenshot
+				renderer->PrepareScreenshotFrame();
+				m_inputManager->KeyUp(VK_F1);
+			}
+			else if (m_inputManager->IsKeyDown(VK_G))
+			{
+				//Show-hide ImGui
+				m_renderGUI = !m_renderGUI;
+				m_inputManager->KeyUp(VK_G);
+			}
 
 			//Change camera position
 			{
@@ -129,7 +141,8 @@ HRESULT Main::Run(std::shared_ptr<DeviceManager> deviceManager, std::shared_ptr<
 
 			renderer->Render();
 
-			m_guiManager->DrawImGUI();
+			if (m_renderGUI)
+				m_guiManager->DrawImGUI();
 
 			deviceManager->Present();
 		}

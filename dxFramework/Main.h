@@ -23,6 +23,7 @@ private:
 	HMENU m_hMenu;
 	RECT m_rect;
 	HWND m_hwnd;	
+	bool m_renderGUI = true;
 };
 
 static XMFLOAT3 m_cameraPositionChange;

@@ -15,3 +15,14 @@
 #define FRESNEL_NONE    0
 #define FRESNEL_SCHLICK 1
 #define FRESNEL_CT      2
+
+#define DEBUG_NONE        0
+#define DEBUG_DIFF        1
+#define DEBUG_SPEC        2
+#define DEBUG_ALBEDO      3
+#define DEBUG_NORMAL      4
+#define DEBUG_ROUGHNESS   5
+#define DEBUG_METALLIC    6
+#define DEBUG_NDF         7
+#define DEBUG_GEOM        8
+#define DEBUG_FRESNEL     9
