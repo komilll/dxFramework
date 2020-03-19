@@ -36,6 +36,7 @@ public:
 
 public:
 	friend class GuiManager;
+	friend class Main;
 	Renderer() = default;
 	Renderer(std::shared_ptr<DeviceManager> deviceManager);
 
@@ -58,7 +59,8 @@ private:
 	void MapResourceData();
 	void SetConstantBuffers();
 
-	void CreateSkyboxTexture();
+	void DrawSkybox();
+	bool CreateSkyboxTexture();
 
 	void RenderToBackBuffer(RenderTexture* texture);
 	void RenderGBuffer(Renderer::GBufferType type);
@@ -174,11 +176,13 @@ private:
 	RenderTexture* m_backBufferRenderTexture	 = NULL;
 	ModelDX* m_backBufferQuadModel				 = NULL;
 	ModelDX* m_bunnyModel						 = NULL;
+	ModelDX* m_skyboxModel						 = NULL;
 
 	//Shader buffers
 	ID3D11VertexShader* m_baseVertexShader			= NULL;
 	ID3D11VertexShader* m_vertexShaderViewPosition	= NULL;
 	ID3D11VertexShader* m_vertexShaderBackBuffer	= NULL;
+	ID3D11VertexShader* m_vertexShaderSkybox		= NULL;
 
 	ID3D11PixelShader* m_pixelShaderBunny			= NULL;
 	ID3D11PixelShader* m_pixelShaderBackBuffer		= NULL;
@@ -187,6 +191,7 @@ private:
 	ID3D11PixelShader* m_pixelShaderDepthBuffer		= NULL;
 	ID3D11PixelShader* m_pixelShaderSSAO			= NULL;
 	ID3D11PixelShader* m_pixelShaderBlurSSAO		= NULL;
+	ID3D11PixelShader* m_pixelShaderSkybox			= NULL;
 
 	//Postprocess classes
 	ShaderSSAO* m_ssao	= NULL;

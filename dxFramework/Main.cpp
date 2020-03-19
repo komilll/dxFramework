@@ -85,11 +85,36 @@ HRESULT Main::Run(std::shared_ptr<DeviceManager> deviceManager, std::shared_ptr<
 	ImGui_ImplWin32_Init(m_hwnd);
 	ImGui_ImplDX11_Init(device, context);
 
-	// Main loop
 	bool bGotMsg;
 	MSG msg;
 	msg.message = WM_NULL;
 	PeekMessage(&msg, NULL, 0U, 0U, PM_NOREMOVE);
+	//Prepare data and resources in loop
+	int retries = 0;
+	constexpr int maxRetries = 10;
+	while (msg.message != WM_QUIT)
+	{
+		bGotMsg = (PeekMessage(&msg, NULL, 0U, 0U, PM_REMOVE) != 0);
+		if (bGotMsg)
+		{
+			TranslateMessage(&msg);
+			DispatchMessage(&msg);
+		}
+		else
+		{
+			if (renderer->CreateSkyboxTexture())
+			{
+				break;
+			}
+			retries++;
+			if (retries > maxRetries)
+			{
+				//Critical error - couldn't load resources
+				assert(false);
+			}
+		}
+	}
+	// Main loop
 	while (msg.message != WM_QUIT)
 	{
 		bGotMsg = (PeekMessage(&msg, NULL, 0U, 0U, PM_REMOVE) != 0);
@@ -121,8 +146,8 @@ HRESULT Main::Run(std::shared_ptr<DeviceManager> deviceManager, std::shared_ptr<
 			//Change camera position
 			{
 				constexpr float xStrengthPosition = 1.0f;
-				constexpr float yStrengthPosition = 1.0f;
-				constexpr float zStrengthPosition = 1.0f;
+				constexpr float yStrengthPosition = xStrengthPosition;
+				constexpr float zStrengthPosition = xStrengthPosition;
 				const float x = xStrengthPosition * (m_inputManager->IsKeyDown(VK_A) ? -1.0f : (m_inputManager->IsKeyDown(VK_D) ? 1.0f : 0.0f));
 				const float y = yStrengthPosition * (m_inputManager->IsKeyDown(VK_E) ? 1.0f : (m_inputManager->IsKeyDown(VK_Q) ? -1.0f : 0.0f));
 				const float z = zStrengthPosition * (m_inputManager->IsKeyDown(VK_W) ? 1.0f : (m_inputManager->IsKeyDown(VK_S) ? -1.0f : 0.0f));
@@ -131,7 +156,7 @@ HRESULT Main::Run(std::shared_ptr<DeviceManager> deviceManager, std::shared_ptr<
 			//Change camera rotation
 			{
 				constexpr float xStrengthRotation = 1.0f;
-				constexpr float yStrengthRotation = 1.0f;
+				constexpr float yStrengthRotation = xStrengthRotation;
 				const float x = xStrengthRotation * (m_inputManager->IsKeyDown(VK_LEFT) ? -1.0f : (m_inputManager->IsKeyDown(VK_RIGHT) ? 1.0f : 0.0f));
 				const float y = yStrengthRotation * (m_inputManager->IsKeyDown(VK_UP) ? -1.0f : (m_inputManager->IsKeyDown(VK_DOWN) ? 1.0f : 0.0f));
 				renderer->AddCameraRotation(y, x, 0.0f);

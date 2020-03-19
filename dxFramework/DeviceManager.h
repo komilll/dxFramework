@@ -17,6 +17,8 @@ public:
 	void TextureChooseWindow(ID3D11Resource** texture, ID3D11ShaderResourceView** textureView, std::string* pathToSave = NULL) const;
 	HRESULT LoadTextureFromFile(const wchar_t* wFilePath, ID3D11Resource** texture, ID3D11ShaderResourceView** textureView) const;
 	void UseViewport();
+	void UseSkyboxDepthStencilStateAndRasterizer();
+	void UseStandardDepthStencilStateAndRasterizer();
 	void SetBackBufferRenderTarget();
 
 	ID3D11Device* GetDevice() const { return m_device; };
@@ -40,9 +42,11 @@ private:
 	ID3D11Texture2D* m_depthStencil;
 	ID3D11DepthStencilView* m_depthStencilView;
 	ID3D11DepthStencilState* m_depthStencilState;
-	
 	ID3D11RasterizerState* m_rasterState;
 
+	ID3D11DepthStencilState* m_skyboxDepthStencilState;
+	ID3D11RasterizerState* m_skyboxRasterState;
+	
 	D3D_FEATURE_LEVEL m_featureLevel;
 	D3D11_TEXTURE2D_DESC m_backBufferDesc;
 	D3D11_VIEWPORT m_viewport;

@@ -49,6 +49,7 @@ Renderer::Renderer(std::shared_ptr<DeviceManager> deviceManager)
 	ShaderSwapper::CompileShader("", "PS_PositionBuffer.hlsl", &m_pixelShaderPositionBuffer, NULL, &m_inputLayout, m_deviceManager->GetDevice());
 	ShaderSwapper::CompileShader("", "PS_NormalBuffer.hlsl", &m_pixelShaderNormalBuffer, NULL, &m_inputLayout, m_deviceManager->GetDevice());
 	ShaderSwapper::CompileShader("", "PS_DepthBuffer.hlsl", &m_pixelShaderDepthBuffer, NULL, &m_inputLayout, m_deviceManager->GetDevice());
+	ShaderSwapper::CompileShader("VS_Skybox.hlsl", "PS_Skybox.hlsl", &m_pixelShaderSkybox, &m_vertexShaderSkybox, &m_inputLayout, m_deviceManager->GetDevice());
 
 	//Prepare SSAO data
 	m_ssao = new ShaderSSAO(m_deviceManager->GetDevice());
@@ -65,6 +66,8 @@ Renderer::Renderer(std::shared_ptr<DeviceManager> deviceManager)
 	m_specialBufferBRDFData.roughnessValue = 0.0f;
 	m_specialBufferBRDFData.debugType = static_cast<int>(m_debugType);
 
+	m_skyboxModel = new ModelDX();
+	m_skyboxModel->LoadModel("cube.obj", m_deviceManager->GetDevice());
 	CreateSkyboxTexture();
 }
 
@@ -91,11 +94,11 @@ void Renderer::Render()
 
 	if (m_baseVertexShader && m_pixelShaderBunny)
 	{		
-		//m_deviceManager->SetBackBufferRenderTarget();
+		m_deviceManager->SetBackBufferRenderTarget();
 		//Input layout is the same for all vertex shaders for now
 		context->IASetInputLayout(m_inputLayout);
 
-		m_renderTexture->SetAsActiveTarget(context, depthStencil, true, true);
+		//m_renderTexture->SetAsActiveTarget(context, depthStencil, true, true);
 
 		//Create world matrix
 		m_constantBufferData.world = XMMatrixIdentity();
@@ -210,8 +213,8 @@ void Renderer::Render()
 				context->DrawIndexed(m_indexCount, 0, 0);
 			}
 		}
-
-		RenderToBackBuffer(m_renderTexture);
+		DrawSkybox();
+		//RenderToBackBuffer(m_renderTexture);
 		if (DO_SCREENSHOT_NEXT_FRAME)
 		{
 			DO_SCREENSHOT_NEXT_FRAME = false;
@@ -229,7 +232,7 @@ void Renderer::PrepareScreenshotFrame()
 
 void Renderer::AddCameraPosition(float x, float y, float z)
 {
-	if (x != 0 || y != 0 || z != 0)
+	//if (x != 0 || y != 0 || z != 0)
 	{
 		m_cameraPositionStoredInFrame.x = x;
 		m_cameraPositionStoredInFrame.y = y;
@@ -245,7 +248,7 @@ void Renderer::AddCameraPosition(XMFLOAT3 addPos)
 
 void Renderer::AddCameraRotation(float x, float y, float z)
 {
-	if (x != 0 || y != 0 || z != 0)
+	//if (x != 0 || y != 0 || z != 0)
 	{
 		m_cameraRotation.x += x;
 		m_cameraRotation.y += y;
@@ -455,29 +458,66 @@ void Renderer::SetConstantBuffers()
 	if (m_baseResourceView) context->PSSetShaderResources(0, 1, &m_baseResourceView);
 }
 
-void Renderer::CreateSkyboxTexture()
+void Renderer::DrawSkybox()
 {
-	constexpr int width = 2048;
-	constexpr int height = 2048;
-	//ID3D11Resource *textures[6]{ nullptr,nullptr,nullptr,nullptr,nullptr,nullptr };
-	//ID3D11ShaderResourceView *textureViews[6]{ nullptr,nullptr,nullptr,nullptr,nullptr,nullptr };
+	if (m_skyboxModel && m_pixelShaderSkybox && m_vertexShaderSkybox)
+	{
+		ID3D11DeviceContext* context = m_deviceManager->GetDeviceContext();
 
-	std::array<ID3D11Resource*, 6> textures;
-	std::array<ID3D11ShaderResourceView*, 6> textureViews;
+		m_deviceManager->UseSkyboxDepthStencilStateAndRasterizer();
 
-	m_deviceManager->LoadTextureFromFile(L"Resources/Skyboxes/posx", &textures[0], &textureViews[0]);
-	m_deviceManager->LoadTextureFromFile(L"Resources/Skyboxes/negx", &textures[1], &textureViews[1]);
-	m_deviceManager->LoadTextureFromFile(L"Resources/Skyboxes/posy", &textures[2], &textureViews[2]);
-	m_deviceManager->LoadTextureFromFile(L"Resources/Skyboxes/negy", &textures[3], &textureViews[3]);
-	m_deviceManager->LoadTextureFromFile(L"Resources/Skyboxes/posz", &textures[4], &textureViews[4]);
-	m_deviceManager->LoadTextureFromFile(L"Resources/Skyboxes/negz", &textures[5], &textureViews[5]);
+		m_skyboxModel->m_position = XMFLOAT3{ m_cameraPosition.x - 0.5f, m_cameraPosition.y - 0.5f, m_cameraPosition.z - 0.5f };
+		m_constantBufferData.world = XMMatrixIdentity();
+		//m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixScaling(m_skyboxModel->m_scale, m_skyboxModel->m_scale, m_skyboxModel->m_scale));
+		m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixScaling(1.0f, 1.0f, 1.0f));
+		m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixTranslation(m_skyboxModel->m_position.x, m_skyboxModel->m_position.y, m_skyboxModel->m_position.z));
+		m_constantBufferData.world = XMMatrixTranspose(m_constantBufferData.world);
+		MapResourceData();
+
+		if (m_constantBuffer) context->VSSetConstantBuffers(0, 1, &m_constantBuffer);
+		if (m_constantBuffer) context->PSSetConstantBuffers(7, 1, &m_uberBuffer);
+
+		context->IASetInputLayout(m_inputLayout);
+		context->VSSetShader(m_vertexShaderSkybox, NULL, 0);
+		context->PSSetShader(m_pixelShaderSkybox, NULL, 0);
+
+		if (m_baseSamplerState) context->PSSetSamplers(0, 1, &m_baseSamplerState);
+		if (m_skyboxResourceView) context->PSSetShaderResources(0, 1, &m_skyboxResourceView);
+
+		m_indexCount = m_skyboxModel->Render(context);
+		context->DrawIndexed(m_indexCount, 0, 0);
+
+		m_deviceManager->UseStandardDepthStencilStateAndRasterizer();
+		ID3D11ShaderResourceView* emptyView = nullptr;
+		context->PSSetShaderResources(0, 1, &emptyView);
+	}
+}
+
+bool Renderer::CreateSkyboxTexture()
+{
+	std::array<ID3D11Resource*, 6> textures{ nullptr };
+	std::array<ID3D11ShaderResourceView*, 6> textureViews{ nullptr };
+
+	bool loadingTextures = SUCCEEDED(m_deviceManager->LoadTextureFromFile(L"Resources/Skyboxes/posx.jpg", &textures[0], &textureViews[0]));
+	loadingTextures &=	SUCCEEDED(m_deviceManager->LoadTextureFromFile(L"Resources/Skyboxes/negx.jpg", &textures[1], &textureViews[1]));
+	loadingTextures &= SUCCEEDED(m_deviceManager->LoadTextureFromFile(L"Resources/Skyboxes/posy.jpg", &textures[2], &textureViews[2]));
+	loadingTextures &= SUCCEEDED(m_deviceManager->LoadTextureFromFile(L"Resources/Skyboxes/negy.jpg", &textures[3], &textureViews[3]));
+	loadingTextures &= SUCCEEDED(m_deviceManager->LoadTextureFromFile(L"Resources/Skyboxes/posz.jpg", &textures[4], &textureViews[4]));
+	loadingTextures &= SUCCEEDED(m_deviceManager->LoadTextureFromFile(L"Resources/Skyboxes/negz.jpg", &textures[5], &textureViews[5]));
+
+	if (!loadingTextures)
+	{
+		return false;
+	}
+	D3D11_TEXTURE2D_DESC importedTexDesc;
+	((ID3D11Texture2D*)textures[0])->GetDesc(&importedTexDesc);
 
 	D3D11_TEXTURE2D_DESC texDesc;
-	texDesc.Width = width;
-	texDesc.Height = height;
-	texDesc.MipLevels = 1;
+	texDesc.Width = importedTexDesc.Width;
+	texDesc.Height = importedTexDesc.Height;
+	texDesc.MipLevels = importedTexDesc.MipLevels;
 	texDesc.ArraySize = 6;
-	texDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	texDesc.Format = importedTexDesc.Format;
 	texDesc.CPUAccessFlags = 0;
 	texDesc.SampleDesc.Count = 1;
 	texDesc.SampleDesc.Quality = 0;
@@ -486,32 +526,45 @@ void Renderer::CreateSkyboxTexture()
 	texDesc.CPUAccessFlags = 0;
 	texDesc.MiscFlags = D3D11_RESOURCE_MISC_TEXTURECUBE;
 
-	D3D11_SHADER_RESOURCE_VIEW_DESC SMViewDesc;
-	SMViewDesc.Format = texDesc.Format;
-	SMViewDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURECUBE;
-	SMViewDesc.TextureCube.MipLevels = texDesc.MipLevels;
-	SMViewDesc.TextureCube.MostDetailedMip = 0;
+	ID3D11Texture2D* texArray = 0;
+	if (FAILED(m_deviceManager->GetDevice()->CreateTexture2D(&texDesc, 0, &texArray)))
+		return false;
 
-	D3D11_SUBRESOURCE_DATA skyboxFacesData[6];
+	// Copy individual texture elements into texture array.
+	ID3D11DeviceContext* context = m_deviceManager->GetDeviceContext();
+	D3D11_BOX sourceRegion;
 
-	for (int cubeMapFaceIndex = 0; cubeMapFaceIndex < 6; cubeMapFaceIndex++)
+	//Here i copy the mip map levels of the textures
+	for (UINT i = 0; i < 6; ++i)
 	{
-		skyboxFacesData[cubeMapFaceIndex].pSysMem = textures;
-		skyboxFacesData[cubeMapFaceIndex].SysMemPitch = width * 4;
-		skyboxFacesData[cubeMapFaceIndex].SysMemSlicePitch = 0;
+		for (UINT mipLevel = 0; mipLevel < texDesc.MipLevels; mipLevel++)
+		{
+			sourceRegion.left = 0;
+			sourceRegion.right = (texDesc.Width >> mipLevel);
+			sourceRegion.top = 0;
+			sourceRegion.bottom = (texDesc.Height >> mipLevel);
+			sourceRegion.front = 0;
+			sourceRegion.back = 1;
+
+			//test for overflow
+			if (sourceRegion.bottom == 0 || sourceRegion.right == 0)
+				break;
+
+			context->CopySubresourceRegion(texArray, D3D11CalcSubresource(mipLevel, i, texDesc.MipLevels), 0, 0, 0, textures[i], mipLevel, &sourceRegion);
+		}
 	}
 
-	HRESULT result = m_deviceManager->GetDevice()->CreateTexture2D(&texDesc, skyboxFacesData, &m_skyboxResource);
-	if (FAILED(result))
-	{
-		assert(false);
-	}
+	// Create a resource view to the texture array.
+	D3D11_SHADER_RESOURCE_VIEW_DESC viewDesc;
+	viewDesc.Format = texDesc.Format;
+	viewDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURECUBE;
+	viewDesc.TextureCube.MostDetailedMip = 0;
+	viewDesc.TextureCube.MipLevels = texDesc.MipLevels;
 
-	result = m_deviceManager->GetDevice()->CreateShaderResourceView(m_skyboxResource, &SMViewDesc, &m_skyboxResourceView);
-	if (FAILED(result))
-	{
-		assert(false);
-	}
+	if (FAILED(m_deviceManager->GetDevice()->CreateShaderResourceView(texArray, &viewDesc, &m_skyboxResourceView)))
+		return false;
+
+	return true;
 }
 
 void Renderer::RenderToBackBuffer(RenderTexture * texture)

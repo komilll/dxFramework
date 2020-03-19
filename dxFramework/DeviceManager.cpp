@@ -140,6 +140,13 @@ HRESULT DeviceManager::ConfigureBackBuffer()
 		return false;
 	}
 
+	depthStencilDesc.DepthFunc = D3D11_COMPARISON_LESS_EQUAL;
+	result = m_device->CreateDepthStencilState(&depthStencilDesc, &m_skyboxDepthStencilState);
+	if (FAILED(result))
+	{
+		return false;
+	}
+
 	GetDeviceContext()->OMSetDepthStencilState(m_depthStencilState, 1);
 
 	D3D11_DEPTH_STENCIL_VIEW_DESC depthStencilViewDesc;
@@ -179,6 +186,13 @@ HRESULT DeviceManager::ConfigureBackBuffer()
 	{
 		return false;
 	}
+	rasterDesc.CullMode = D3D11_CULL_NONE;
+	result = m_device->CreateRasterizerState(&rasterDesc, &m_skyboxRasterState);
+	if (FAILED(result))
+	{
+		return false;
+	}
+
 	m_deviceContext->RSSetState(m_rasterState);
 
 	return result;
@@ -295,6 +309,18 @@ void DeviceManager::TextureChooseWindow(ID3D11Resource ** texture, ID3D11ShaderR
 void DeviceManager::UseViewport()
 {
 	m_deviceContext->RSSetViewports(1, &m_viewport);
+}
+
+void DeviceManager::UseSkyboxDepthStencilStateAndRasterizer()
+{
+	GetDeviceContext()->OMSetDepthStencilState(m_skyboxDepthStencilState, 1);
+	m_deviceContext->RSSetState(m_skyboxRasterState);
+}
+
+void DeviceManager::UseStandardDepthStencilStateAndRasterizer()
+{
+	GetDeviceContext()->OMSetDepthStencilState(m_depthStencilState, 1);
+	m_deviceContext->RSSetState(m_rasterState);
 }
 
 void DeviceManager::SetBackBufferRenderTarget()
