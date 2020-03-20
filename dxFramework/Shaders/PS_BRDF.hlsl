@@ -1,8 +1,7 @@
 #include <PS_Input.hlsl> //PixelInputType
 #include <ALL_SettingsBRDF.hlsl>
 #include <CBuffer_BindingsBRDF.hlsl>
-
-SamplerState baseSampler : register(s0);
+#include <PS_IBL.hlsl>
 
 Texture2D albedoTexture 	: register(t0);
 Texture2D roughnessTexture  : register(t1);
@@ -15,21 +14,24 @@ Texture2D metallicTexture 	: register(t3);
 //Normal distribution functions
 float Specular_D_Beckmann(float roughness, float NoH)
 {
-    const float a2 = roughness * roughness;
+    const float a = roughness * roughness;
+	const float a2 = a * a;
     const float NoH2 = NoH * NoH;
     return exp( (NoH2-1.0f) / (a2*NoH2) ) / (a2*PI*NoH2*NoH2);
 }
 
 float Specular_D_GGX(float roughness, float NoH)
 {
-    const float a2 = roughness * roughness;
+    const float a = roughness * roughness;
+	const float a2 = a * a;
     const float NoH2 = NoH * NoH;
     return a2 / (PI * pow((NoH2*(a2-1)+1), 2) );
 }
 
 float Specular_D_Blinn_Phong(float roughness, float NoH)
 {
-    const float a2 = roughness * roughness;
+	const float a = roughness * roughness;
+    const float a2 = a * a;
     const float NoH2 = NoH * NoH;
     return pow(NoH, (2/a2-2)) / (PI*a2);
 }
@@ -57,7 +59,8 @@ float Specular_G_Kelemen(float NoV, float NoL, float VoH)
 
 float Specular_G_Beckmann(float NoV, float roughness)
 {
-	const float c = NoV / (roughness * sqrt(1 - NoV*NoV));
+	const float a = roughness * roughness;
+	const float c = NoV / (a * sqrt(1 - NoV*NoV));
 	if (c >= 1.6f)
 		return 1.0f;
 	else
@@ -66,20 +69,23 @@ float Specular_G_Beckmann(float NoV, float roughness)
 
 float Specular_G_GGX(float roughness, float NoV)
 {
-	const float a2 = roughness * roughness;
+	const float a = roughness * roughness;
+	const float a2 = a * a;
 	const float NoV2 = NoV * NoV;
 	return (2.0f*NoV) / (NoV + sqrt(a2+(1-a2)*NoV2));
 }
 
 float Specular_G_SchlickBeckmann(float roughness, float NoV)
 {
-	const float k = roughness * sqrt(2.0f/PI);
+	const float a = roughness * roughness;
+	const float k = a * sqrt(2.0f/PI);
 	return NoV / (NoV*(1-k) + k);
 }
 
 float Specular_G_SchlickGGX(float roughness, float NoV)
 {
-	const float k = roughness/2.0f;
+	const float a = roughness * roughness;
+	const float k = a/2.0f;
 	return NoV / (NoV*(1.0f-k) + k);
 }
 
@@ -235,6 +241,7 @@ float4 main(PixelInputType input) : SV_TARGET
 	const float numeratorBRDF = D * F * G;
 	const float denominatorBRDF = max((4.0f * max(NoV, 0.0f) * max(NoL, 0.0f)), 0.001f);
 	const float BRDF = numeratorBRDF / denominatorBRDF;
+
 	const float3 spec = saturate(albedo * BRDF) * specularColor;
 
 	const float ambient = 0.05f;
@@ -243,6 +250,8 @@ float4 main(PixelInputType input) : SV_TARGET
 	const float3 diff = saturate(invPI * Diffuse_Disney(NoV, NoL, LoH, roughness)) * diffuseColor;
 
 	if (g_debugType == DEBUG_NONE){
+		const float3 specularIBL = SpecularIBL(roughness, N) * specularColor * BRDF * NoL;
+		return float4(specularIBL, 1.0f);
 		return float4(diff + spec, 1.0f);
 	}
 	if (g_debugType == DEBUG_DIFF){

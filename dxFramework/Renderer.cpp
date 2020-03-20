@@ -151,13 +151,14 @@ void Renderer::Render()
 		if (m_roughnessResourceView) context->PSSetShaderResources(1, 1, &m_roughnessResourceView);
 		if (m_normalResourceView) context->PSSetShaderResources(2, 1, &m_normalResourceView);
 		if (m_metallicResourceView) context->PSSetShaderResources(3, 1, &m_metallicResourceView);
+		if (m_skyboxResourceView) context->PSSetShaderResources(4, 1, &m_skyboxResourceView);
 
 		m_indexCount = m_bunnyModel->Render(context);
 		//context->DrawIndexed(m_indexCount, 0, 0);
 		//return;
-		for (int x = 0; x < 5; ++x)
+		for (int x = 0; x < 10; ++x)
 		{
-			for (int y = 0; y < 5; ++y)
+			for (int y = 4; y < 5; ++y)
 			{
 				m_constantBufferData.world = XMMatrixIdentity();
 				m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixScaling(m_bunnyModel->m_scale, m_bunnyModel->m_scale, m_bunnyModel->m_scale));
@@ -198,7 +199,7 @@ void Renderer::Render()
 					dataPtr->hasRoughness = static_cast<int>(m_roughnessResourceView != NULL);
 					dataPtr->hasMetallic = static_cast<int>(m_metallicResourceView != NULL);
 
-					dataPtr->roughnessValue = max(static_cast<float>(x) * 0.25f, 0.001f);
+					dataPtr->roughnessValue = max(static_cast<float>(x) * 0.1f, 0.001f);
 					dataPtr->metallicValue = static_cast<float>(y) * 0.25f;
 					dataPtr->f0 = min(max(m_specialBufferBRDFData.f0, 0.001f), 0.99999f);
 
