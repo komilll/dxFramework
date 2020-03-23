@@ -9,6 +9,7 @@
 #include "RenderTexture.h"
 #include "ModelDX.h"
 #include "ShaderSSAO.h"
+#include "Profiler.h"
 
 using namespace DirectX;
 class Renderer 
@@ -72,6 +73,7 @@ private:
 //DEBUG SETTINGS
 	bool FREEZE_CAMERA = false;
 	bool DO_SCREENSHOT_NEXT_FRAME = false;
+	Profiler* m_profiler;
 
 //Rendering settings
 	NdfType m_ndfType = NdfType::GGX;

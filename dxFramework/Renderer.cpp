@@ -41,6 +41,8 @@ Renderer::Renderer(std::shared_ptr<DeviceManager> deviceManager)
 	m_bunnyModel->LoadModel("sphere.obj", m_deviceManager->GetDevice());
 	m_bunnyModel->m_scale = 10.0f;
 
+	m_profiler = new Profiler(m_deviceManager->GetDevice(), m_deviceManager->GetDeviceContext());
+
 	ShaderSwapper::CompileShader("VS_Base.hlsl", "PS_BRDF.hlsl", &m_pixelShaderBunny, &m_baseVertexShader, &m_inputLayout, m_deviceManager->GetDevice());
 	ShaderSwapper::CompileShader("VS_BackBuffer.hlsl", "PS_BackBuffer.hlsl", &m_pixelShaderBackBuffer, &m_vertexShaderBackBuffer, &m_inputLayout, m_deviceManager->GetDevice());
 	ShaderSwapper::CompileShader("VS_ViewSpacePosition.hlsl", "", NULL, &m_vertexShaderViewPosition, &m_inputLayout, m_deviceManager->GetDevice());
@@ -88,6 +90,7 @@ void Renderer::Update()
 
 void Renderer::Render()
 {
+	m_profiler->StartFrame();
 	ID3D11DeviceContext* context = m_deviceManager->GetDeviceContext();
 	ID3D11RenderTargetView* renderTarget = m_deviceManager->GetRenderTarget();
 	ID3D11DepthStencilView* depthStencil = m_deviceManager->GetDepthStencil();
@@ -156,7 +159,9 @@ void Renderer::Render()
 		m_indexCount = m_bunnyModel->Render(context);
 		//context->DrawIndexed(m_indexCount, 0, 0);
 		//return;
-		for (int x = 0; x < 10; ++x)
+
+		m_profiler->StartProfiling("Main render loop");
+		for (int x = 0; x < 1; ++x)
 		{
 			for (int y = 4; y < 5; ++y)
 			{
@@ -214,6 +219,8 @@ void Renderer::Render()
 				context->DrawIndexed(m_indexCount, 0, 0);
 			}
 		}
+		m_profiler->EndProfiling("Main render loop");
+
 		DrawSkybox();
 		//RenderToBackBuffer(m_renderTexture);
 		if (DO_SCREENSHOT_NEXT_FRAME)
@@ -224,6 +231,7 @@ void Renderer::Render()
 			SaveTextureToFile(m_renderTexture, wFilename.c_str());
 		}
 	}
+	m_profiler->EndFrame();
 }
 
 void Renderer::PrepareScreenshotFrame()
@@ -239,6 +247,10 @@ void Renderer::AddCameraPosition(float x, float y, float z)
 		m_cameraPositionStoredInFrame.y = y;
 		m_cameraPositionStoredInFrame.z = z;
 		CreateViewAndPerspective();
+	}
+	if (x != 0 || y != 0 || z != 0)
+	{
+		m_profiler->ResetProfiling();
 	}
 }
 
@@ -261,6 +273,10 @@ void Renderer::AddCameraRotation(float x, float y, float z)
 		m_cameraRotation.x = m_cameraRotation.x >= 90.0f ? 89.9f : (m_cameraRotation.x <= -90.0f ? -89.9f : m_cameraRotation.x);
 
 		CreateViewAndPerspective();
+	}
+	if (x != 0 || y != 0 || z != 0)
+	{
+		m_profiler->ResetProfiling();
 	}
 }
 

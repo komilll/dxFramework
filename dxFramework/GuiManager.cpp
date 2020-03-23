@@ -1,5 +1,8 @@
 #include "GuiManager.h"
 #include "ShaderSwapper.h"
+#include "Profiler.h"
+#include <sstream>
+#include <iomanip>
 
 GuiManager::GuiManager(std::shared_ptr<DeviceManager> deviceManager, std::shared_ptr<Renderer> renderer, std::shared_ptr<SaveSession> saveSession)
 {
@@ -96,6 +99,7 @@ void GuiManager::DrawImGUI()
 				if (ImGui::Selectable(ndfTypeNames[i], static_cast<int>(m_renderer->m_ndfType) == i))
 				{
 					m_renderer->m_ndfType = static_cast<Renderer::NdfType>(i);
+					m_renderer->m_profiler->ResetProfiling();
 				}
 			}
 		}
@@ -106,6 +110,7 @@ void GuiManager::DrawImGUI()
 				if (ImGui::Selectable(geomTypeNames[i], static_cast<int>(m_renderer->m_geometryType) == i))
 				{
 					m_renderer->m_geometryType = static_cast<Renderer::GeometryType>(i);
+					m_renderer->m_profiler->ResetProfiling();
 				}
 			}
 		}
@@ -116,6 +121,7 @@ void GuiManager::DrawImGUI()
 				if (ImGui::Selectable(fresnelTypeNames[i], static_cast<int>(m_renderer->m_fresnelType) == i))
 				{
 					m_renderer->m_fresnelType = static_cast<Renderer::FresnelType>(i);
+					m_renderer->m_profiler->ResetProfiling();
 				}
 			}
 		}
@@ -126,6 +132,7 @@ void GuiManager::DrawImGUI()
 				if (ImGui::Selectable(debugTypeNames[i], static_cast<int>(m_renderer->m_debugType) == i))
 				{
 					m_renderer->m_debugType = static_cast<Renderer::DebugType>(i);
+					m_renderer->m_profiler->ResetProfiling();
 				}
 			}
 		}
@@ -147,6 +154,30 @@ void GuiManager::DrawImGUI()
 
 		ImGui::DragInt("Sample count", &m_renderer->m_specialBufferSSAOData.sampleCount, 0.25f, 1, 64);
 		ImGui::DragFloat("Kernel radius", &m_renderer->m_specialBufferSSAOData.kernelRadius, 0.05f, 0.01f, 50.0f, "%.2f");
+	}
+	ImGui::End();
+
+	ImGui::Begin("Profiling data");
+	{
+		Profiler::FrameData* dataNew = m_renderer->m_profiler->CopyProfilingDataNewFrame();
+		Profiler::FrameData* dataOld = m_renderer->m_profiler->CopyProfilingDataDoneFrame();
+
+		//Use only after one frame is ready
+		if (dataNew->data.size() == dataOld->data.size())
+		{
+			std::map<std::string, Profiler::ClockData>::iterator itNew = dataNew->data.begin();
+			std::map<std::string, Profiler::ClockData>::iterator itOld = dataOld->data.begin();
+			while (itNew != dataNew->data.end() && itOld != dataOld->data.end())
+			{
+				double time = ((itNew->second.totalTime / itNew->second.dataCount) + (itOld->second.totalTime / itOld->second.dataCount)) / 2.0;
+				std::stringstream stream;
+				stream << std::fixed << std::setprecision(6) << time;
+				ImGui::LabelText(itNew->first.c_str(), (stream.str() + "ms").c_str());
+
+				itNew++;
+				itOld++;
+			}
+		}
 	}
 	ImGui::End();
 
