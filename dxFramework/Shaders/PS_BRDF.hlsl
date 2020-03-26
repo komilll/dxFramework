@@ -250,8 +250,8 @@ float4 main(PixelInputType input) : SV_TARGET
 	const float3 diff = saturate(invPI * Diffuse_Disney(NoV, NoL, LoH, roughness)) * diffuseColor;
 
 	if (g_debugType == DEBUG_NONE){
-		const float3 specularIBL = SpecularIBL(roughness, N) * specularColor;// * BRDF * NoL;
-		return float4(specularIBL, 1.0f);
+		// const float3 specularIBL = SpecularIBL(roughness, N) * specularColor * NoL;// * BRDF * NoL;
+		// return float4(specularIBL, 1.0f);
 		return float4(diff + spec, 1.0f);
 	}
 	if (g_debugType == DEBUG_DIFF){

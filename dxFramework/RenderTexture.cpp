@@ -10,7 +10,7 @@ RenderTexture::RenderTexture(int width, int height, ID3D11Device * device, DXGI_
 void RenderTexture::SetAsActiveTarget(ID3D11DeviceContext * context, ID3D11DepthStencilView * depthStencilView, bool clearTarget /* = true */, bool clearDepth /* = false */, DirectX::XMFLOAT4 clearColor /* = { 0.098f, 0.439f, 0.439f, 1.000f } */)
 {
 	assert(context);
-	assert(depthStencilView);
+	//assert(depthStencilView);
 	context->OMSetRenderTargets(1, &m_renderTargetView, depthStencilView);
 
 	if (clearTarget){

@@ -92,6 +92,7 @@ HRESULT Main::Run(std::shared_ptr<DeviceManager> deviceManager, std::shared_ptr<
 	//Prepare data and resources in loop
 	int retries = 0;
 	constexpr int maxRetries = 10;
+
 	while (msg.message != WM_QUIT)
 	{
 		bGotMsg = (PeekMessage(&msg, NULL, 0U, 0U, PM_REMOVE) != 0);
@@ -114,6 +115,7 @@ HRESULT Main::Run(std::shared_ptr<DeviceManager> deviceManager, std::shared_ptr<
 			}
 		}
 	}
+
 	// Main loop
 	while (msg.message != WM_QUIT)
 	{

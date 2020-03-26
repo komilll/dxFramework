@@ -29,6 +29,7 @@ bool ShaderSwapper::CompileShader(std::string vertexShaderName, std::string pixe
 				OutputDebugStringA((char*)errorBlob->GetBufferPointer());
 				errorBlob->Release();
 			}
+			assert(false);
 			return result;
 		}
 
@@ -36,6 +37,7 @@ bool ShaderSwapper::CompileShader(std::string vertexShaderName, std::string pixe
 		result = device->CreateVertexShader(vertexShaderBuffer->GetBufferPointer(), vertexShaderBuffer->GetBufferSize(), NULL, vertexShader);
 		if (FAILED(result))
 		{
+			assert(false);
 			return result;
 		}
 
@@ -44,6 +46,7 @@ bool ShaderSwapper::CompileShader(std::string vertexShaderName, std::string pixe
 		result = device->CreateInputLayout(polygonLayout.data(), static_cast<UINT>(polygonLayout.size()), vertexShaderBuffer->GetBufferPointer(), vertexShaderBuffer->GetBufferSize(), inputLayout);
 		if (FAILED(result))
 		{
+			assert(false);
 			return result;
 		}
 
@@ -62,6 +65,7 @@ bool ShaderSwapper::CompileShader(std::string vertexShaderName, std::string pixe
 				OutputDebugStringA((char*)errorBlob->GetBufferPointer());
 				errorBlob->Release();
 			}
+			assert(false);
 			return result;
 		}
 
@@ -69,6 +73,7 @@ bool ShaderSwapper::CompileShader(std::string vertexShaderName, std::string pixe
 		result = device->CreatePixelShader(pixelShaderBuffer->GetBufferPointer(), pixelShaderBuffer->GetBufferSize(), NULL, pixelShader);
 		if (FAILED(result))
 		{
+			assert(false);
 			return result;
 		}
 

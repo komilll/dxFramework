@@ -62,6 +62,7 @@ private:
 
 	void DrawSkybox();
 	bool CreateSkyboxTexture();
+	void ConvoluteDiffuseSkybox();
 
 	void RenderToBackBuffer(RenderTexture* texture);
 	void RenderGBuffer(Renderer::GBufferType type);
@@ -132,6 +133,12 @@ private:
 	} SpecialBufferBRDFStruct;
 	static_assert((sizeof(SpecialBufferBRDFStruct) % 16) == 0, "SpecialBufferBRDFStruct size must be 16-byte aligned");
 
+	typedef struct _specialBufferPrecomputeIBLStruct {
+		int cubemapFaceIndex;
+		XMFLOAT3 padding;
+	} SpecialBufferPrecomputeIBLStruct;
+	static_assert((sizeof(SpecialBufferPrecomputeIBLStruct) % 16) == 0, "SpecialBufferPrecomputeIBLStruct size must be 16-byte aligned");
+
 	//Constant buffers
 	ConstantBufferStruct m_constantBufferData;
 	DirectionalLightBuffer m_directionalLightBufferData;
@@ -139,18 +146,20 @@ private:
 	PropertyBuffer m_propertyBufferData;
 	SpecialBufferSSAOStruct m_specialBufferSSAOData;
 	SpecialBufferBRDFStruct m_specialBufferBRDFData;
+	SpecialBufferPrecomputeIBLStruct m_specialBufferPrecomputeIBLData;
 
 	ID3D11Buffer* m_vertexBuffer		= NULL;
 	ID3D11Buffer* m_indexBuffer			= NULL;
 	ID3D11InputLayout* m_inputLayout	= NULL;
 
 	//Buffers
-	ID3D11Buffer* m_constantBuffer			= NULL;
-	ID3D11Buffer* m_directionalLightBuffer	= NULL;
-	ID3D11Buffer* m_uberBuffer				= NULL;
-	ID3D11Buffer* m_propertyBuffer			= NULL;
-	ID3D11Buffer* m_specialBufferSSAO		= NULL;
-	ID3D11Buffer* m_specialBufferBRDF		= NULL;
+	ID3D11Buffer* m_constantBuffer			   = NULL;
+	ID3D11Buffer* m_directionalLightBuffer     = NULL;
+	ID3D11Buffer* m_uberBuffer				   = NULL;
+	ID3D11Buffer* m_propertyBuffer			   = NULL;
+	ID3D11Buffer* m_specialBufferSSAO		   = NULL;
+	ID3D11Buffer* m_specialBufferBRDF		   = NULL;
+	ID3D11Buffer* m_specialBufferPrecomputeIBL = NULL;
 
 	//Camera data
 	XMFLOAT3 m_cameraPosition{ 0,0,0 };
@@ -176,6 +185,7 @@ private:
 	RenderTexture* m_depthBufferTexture			 = NULL;
 	RenderTexture* m_ssaoBufferTexture			 = NULL;
 	RenderTexture* m_backBufferRenderTexture	 = NULL;
+	RenderTexture* m_diffuseConvolutionTexture	 = NULL;
 	ModelDX* m_backBufferQuadModel				 = NULL;
 	ModelDX* m_bunnyModel						 = NULL;
 	ModelDX* m_skyboxModel						 = NULL;
@@ -194,6 +204,7 @@ private:
 	ID3D11PixelShader* m_pixelShaderSSAO			= NULL;
 	ID3D11PixelShader* m_pixelShaderBlurSSAO		= NULL;
 	ID3D11PixelShader* m_pixelShaderSkybox			= NULL;
+	ID3D11PixelShader* m_pixelShaderPrecomputeIBL   = NULL;
 
 	//Postprocess classes
 	ShaderSSAO* m_ssao	= NULL;

@@ -6,6 +6,7 @@
 #include "ShaderSwapper.h"
 #include <ScreenGrab.h>
 #include <Wincodec.h> 
+#include <sstream>
 
 Renderer::Renderer(std::shared_ptr<DeviceManager> deviceManager)
 {
@@ -33,6 +34,7 @@ Renderer::Renderer(std::shared_ptr<DeviceManager> deviceManager)
 	m_depthBufferTexture = new RenderTexture(1280, 720, m_deviceManager->GetDevice(), DXGI_FORMAT_R16_FLOAT);
 	m_ssaoBufferTexture = new RenderTexture(1280, 720, m_deviceManager->GetDevice(), DXGI_FORMAT_R32_FLOAT);
 	m_backBufferRenderTexture = new RenderTexture(1280, 720, m_deviceManager->GetDevice());
+	m_diffuseConvolutionTexture = new RenderTexture(512, 512, m_deviceManager->GetDevice());
 
 	m_backBufferQuadModel = new ModelDX();
 	m_backBufferQuadModel->SetFullScreenRectangleModel(m_deviceManager->GetDevice());
@@ -52,6 +54,7 @@ Renderer::Renderer(std::shared_ptr<DeviceManager> deviceManager)
 	ShaderSwapper::CompileShader("", "PS_NormalBuffer.hlsl", &m_pixelShaderNormalBuffer, NULL, &m_inputLayout, m_deviceManager->GetDevice());
 	ShaderSwapper::CompileShader("", "PS_DepthBuffer.hlsl", &m_pixelShaderDepthBuffer, NULL, &m_inputLayout, m_deviceManager->GetDevice());
 	ShaderSwapper::CompileShader("VS_Skybox.hlsl", "PS_Skybox.hlsl", &m_pixelShaderSkybox, &m_vertexShaderSkybox, &m_inputLayout, m_deviceManager->GetDevice());
+	ShaderSwapper::CompileShader("", "PS_PrecomputeIBL.hlsl", &m_pixelShaderPrecomputeIBL, NULL, &m_inputLayout, m_deviceManager->GetDevice());
 
 	//Prepare SSAO data
 	m_ssao = new ShaderSSAO(m_deviceManager->GetDevice());
@@ -163,7 +166,7 @@ void Renderer::Render()
 		m_profiler->StartProfiling("Main render loop");
 		for (int x = 0; x < 1; ++x)
 		{
-			for (int y = 4; y < 5; ++y)
+			for (int y = 0; y < 5; ++y)
 			{
 				m_constantBufferData.world = XMMatrixIdentity();
 				m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixScaling(m_bunnyModel->m_scale, m_bunnyModel->m_scale, m_bunnyModel->m_scale));
@@ -221,8 +224,12 @@ void Renderer::Render()
 		}
 		m_profiler->EndProfiling("Main render loop");
 
-		DrawSkybox();
+		//DrawSkybox();
 		//RenderToBackBuffer(m_renderTexture);
+		m_profiler->StartProfiling("Diffuse convolute");
+		ConvoluteDiffuseSkybox();
+		m_profiler->EndProfiling("Diffuse convolute");
+
 		if (DO_SCREENSHOT_NEXT_FRAME)
 		{
 			DO_SCREENSHOT_NEXT_FRAME = false;
@@ -334,6 +341,13 @@ HRESULT Renderer::CreateConstantBuffers()
 
 	constantBufferDesc.ByteWidth = sizeof(SpecialBufferBRDFStruct);
 	result = device->CreateBuffer(&constantBufferDesc, nullptr, &m_specialBufferBRDF);
+	if (FAILED(result))
+	{
+		return result;
+	}
+
+	constantBufferDesc.ByteWidth = sizeof(SpecialBufferPrecomputeIBLStruct);
+	result = device->CreateBuffer(&constantBufferDesc, nullptr, &m_specialBufferPrecomputeIBL);
 	if (FAILED(result))
 	{
 		return result;
@@ -485,7 +499,6 @@ void Renderer::DrawSkybox()
 
 		m_skyboxModel->m_position = XMFLOAT3{ m_cameraPosition.x - 0.5f, m_cameraPosition.y - 0.5f, m_cameraPosition.z - 0.5f };
 		m_constantBufferData.world = XMMatrixIdentity();
-		//m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixScaling(m_skyboxModel->m_scale, m_skyboxModel->m_scale, m_skyboxModel->m_scale));
 		m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixScaling(1.0f, 1.0f, 1.0f));
 		m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixTranslation(m_skyboxModel->m_position.x, m_skyboxModel->m_position.y, m_skyboxModel->m_position.z));
 		m_constantBufferData.world = XMMatrixTranspose(m_constantBufferData.world);
@@ -515,12 +528,19 @@ bool Renderer::CreateSkyboxTexture()
 	std::array<ID3D11Resource*, 6> textures{ nullptr };
 	std::array<ID3D11ShaderResourceView*, 6> textureViews{ nullptr };
 
-	bool loadingTextures = SUCCEEDED(m_deviceManager->LoadTextureFromFile(L"Resources/Skyboxes/posx.jpg", &textures[0], &textureViews[0]));
-	loadingTextures &=	SUCCEEDED(m_deviceManager->LoadTextureFromFile(L"Resources/Skyboxes/negx.jpg", &textures[1], &textureViews[1]));
-	loadingTextures &= SUCCEEDED(m_deviceManager->LoadTextureFromFile(L"Resources/Skyboxes/posy.jpg", &textures[2], &textureViews[2]));
-	loadingTextures &= SUCCEEDED(m_deviceManager->LoadTextureFromFile(L"Resources/Skyboxes/negy.jpg", &textures[3], &textureViews[3]));
-	loadingTextures &= SUCCEEDED(m_deviceManager->LoadTextureFromFile(L"Resources/Skyboxes/posz.jpg", &textures[4], &textureViews[4]));
-	loadingTextures &= SUCCEEDED(m_deviceManager->LoadTextureFromFile(L"Resources/Skyboxes/negz.jpg", &textures[5], &textureViews[5]));
+	//bool loadingTextures = SUCCEEDED(m_deviceManager->LoadTextureFromFile(L"Resources/Skyboxes/posx.jpg", &textures[0], &textureViews[0]));
+	//loadingTextures &=	SUCCEEDED(m_deviceManager->LoadTextureFromFile(L"Resources/Skyboxes/negx.jpg", &textures[1], &textureViews[1]));
+	//loadingTextures &= SUCCEEDED(m_deviceManager->LoadTextureFromFile(L"Resources/Skyboxes/posy.jpg", &textures[2], &textureViews[2]));
+	//loadingTextures &= SUCCEEDED(m_deviceManager->LoadTextureFromFile(L"Resources/Skyboxes/negy.jpg", &textures[3], &textureViews[3]));
+	//loadingTextures &= SUCCEEDED(m_deviceManager->LoadTextureFromFile(L"Resources/Skyboxes/posz.jpg", &textures[4], &textureViews[4]));
+	//loadingTextures &= SUCCEEDED(m_deviceManager->LoadTextureFromFile(L"Resources/Skyboxes/negz.jpg", &textures[5], &textureViews[5]));
+
+	bool loadingTextures = SUCCEEDED(m_deviceManager->LoadTextureFromFile(L"Resources/Skyboxes/Trees/posx.bmp", &textures[0], &textureViews[0]));
+	loadingTextures &=	SUCCEEDED(m_deviceManager->LoadTextureFromFile(L"Resources/Skyboxes/Trees/negx.bmp", &textures[1], &textureViews[1]));
+	loadingTextures &= SUCCEEDED(m_deviceManager->LoadTextureFromFile(L"Resources/Skyboxes/Trees/posy.bmp", &textures[2], &textureViews[2]));
+	loadingTextures &= SUCCEEDED(m_deviceManager->LoadTextureFromFile(L"Resources/Skyboxes/Trees/negy.bmp", &textures[3], &textureViews[3]));
+	loadingTextures &= SUCCEEDED(m_deviceManager->LoadTextureFromFile(L"Resources/Skyboxes/Trees/posz.bmp", &textures[4], &textureViews[4]));
+	loadingTextures &= SUCCEEDED(m_deviceManager->LoadTextureFromFile(L"Resources/Skyboxes/Trees/negz.bmp", &textures[5], &textureViews[5]));
 
 	if (!loadingTextures)
 	{
@@ -584,6 +604,61 @@ bool Renderer::CreateSkyboxTexture()
 	return true;
 }
 
+void Renderer::ConvoluteDiffuseSkybox()
+{
+	for (int i = 0; i < 6; ++i)
+	{
+		ID3D11DeviceContext* context = m_deviceManager->GetDeviceContext();
+
+		m_diffuseConvolutionTexture->SetAsActiveTarget(context, NULL, true, false, XMFLOAT4{ 0,0,0,0 });
+
+		//m_deviceManager->SetBackBufferRenderTarget();
+		m_indexCount = m_backBufferQuadModel->Render(context);
+
+		context->VSSetShader(m_vertexShaderBackBuffer, NULL, 0);
+		context->PSSetShader(m_pixelShaderPrecomputeIBL, NULL, 0);
+
+		if (m_constantBuffer)
+		{
+			D3D11_MAPPED_SUBRESOURCE mappedResource;
+			const HRESULT result = context->Map(m_constantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
+			assert(SUCCEEDED(result));
+			ConstantBufferStruct* dataPtr = static_cast<ConstantBufferStruct*>(mappedResource.pData);
+
+			dataPtr->world = m_constantBufferData.world;
+			dataPtr->view = m_constantBufferData.view;
+			dataPtr->projection = m_constantBufferData.projection;
+			context->Unmap(m_constantBuffer, 0);
+
+			context->VSSetConstantBuffers(0, 1, &m_constantBuffer);
+		}
+
+		if (m_specialBufferPrecomputeIBL)
+		{
+			D3D11_MAPPED_SUBRESOURCE mappedResource;
+			const HRESULT result = context->Map(m_specialBufferPrecomputeIBL, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
+			assert(SUCCEEDED(result));
+			SpecialBufferPrecomputeIBLStruct* dataPtr = static_cast<SpecialBufferPrecomputeIBLStruct*>(mappedResource.pData);
+
+			dataPtr->cubemapFaceIndex = i;
+			dataPtr->padding = XMFLOAT3{};
+			context->Unmap(m_specialBufferPrecomputeIBL, 0);
+
+			context->PSSetConstantBuffers(13, 1, &m_specialBufferPrecomputeIBL);
+		}
+		if (m_baseSamplerState) context->PSSetSamplers(0, 1, &m_baseSamplerState);
+		if (m_skyboxResourceView) context->PSSetShaderResources(0, 1, &m_skyboxResourceView);
+
+		context->DrawIndexed(m_indexCount, 0, 0);
+		std::ostringstream ss;
+		ss << i;
+		std::string filename = "Resources/Skyboxes/test" + ss.str() + ".png";
+		std::wstring wFilename{ filename.begin(), filename.end() };
+		SaveTextureToFile(m_diffuseConvolutionTexture, wFilename.c_str());
+	}
+	PostQuitMessage(0);
+}
+
 void Renderer::RenderToBackBuffer(RenderTexture * texture)
 {
 	ID3D11DeviceContext* context = m_deviceManager->GetDeviceContext();
@@ -597,9 +672,7 @@ void Renderer::RenderToBackBuffer(RenderTexture * texture)
 	if (m_baseSamplerState) context->PSSetSamplers(0, 1, &m_baseSamplerState);
 	if (texture)
 	{
-		auto texView = texture->GetResourceView();
-		if (texView)
-		{
+		if (auto texView = texture->GetResourceView()) {
 			context->PSSetShaderResources(0, 1, &texView);
 		}
 	}

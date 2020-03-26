@@ -1,6 +1,8 @@
 #ifndef _PS_IBL_HLSL_
 #define _PS_IBL_HLSL_
 
+#include <HammerslaySequence.hlsl>
+
 SamplerState baseSampler : register(s0);
 TextureCube<float4> specularReflectanceTexture : register(t4);
 
@@ -52,6 +54,7 @@ float3 SpecularIBL(float roughness, float3 N)
     for (uint i = 0; i < sampleCount; ++i)
     {
         float2 Xi = HammersleyDistribution(i, sampleCount);
+        // float2 Xi = hammerslaySequence[i];
         float3 H = ImportanceSamplingGGX(Xi, N, roughness);
         float3 L = 2 * dot(V, H) * H - V;
 
