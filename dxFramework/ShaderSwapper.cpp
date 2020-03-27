@@ -2,7 +2,7 @@
 #include <d3dcompiler.h>
 #include "ModelDX.h"
 
-bool ShaderSwapper::CompileShader(std::string vertexShaderName, std::string pixelShaderName, ID3D11PixelShader ** pixelShader, ID3D11VertexShader ** vertexShader, ID3D11InputLayout ** inputLayout, ID3D11Device * device)
+bool ShaderSwapper::CompileShader(std::string vertexShaderName, std::string pixelShaderName, ID3D11PixelShader ** pixelShader, ID3D11VertexShader ** vertexShader, ID3D11InputLayout ** inputLayout, ID3D11Device * device, std::string vertexFunction /* = "main" */, std::string pixelFunction /* = "main" */)
 {
 	if (vertexShader && *vertexShader) {
 		(*vertexShader)->Release();
@@ -19,9 +19,10 @@ bool ShaderSwapper::CompileShader(std::string vertexShaderName, std::string pixe
 	//Compile shaders	
 	if (vertexShaderName != "" && vertexShader != NULL)
 	{
+		//Vertex shader
 		const std::string vertexShaderFullPath = "Shaders/" + vertexShaderName;
 		const std::wstring vertexShaderFullPathW = std::wstring(vertexShaderFullPath.begin(), vertexShaderFullPath.end());
-		result = D3DCompileFromFile(vertexShaderFullPathW.c_str(), NULL, D3D_COMPILE_STANDARD_FILE_INCLUDE, "main", "vs_5_0", D3D10_SHADER_ENABLE_STRICTNESS, 0, &vertexShaderBuffer, &errorBlob);
+		result = D3DCompileFromFile(vertexShaderFullPathW.c_str(), NULL, D3D_COMPILE_STANDARD_FILE_INCLUDE, vertexFunction.c_str(), "vs_5_0", D3D10_SHADER_ENABLE_STRICTNESS, 0, &vertexShaderBuffer, &errorBlob);
 		if (FAILED(result))
 		{
 			if (errorBlob)
@@ -55,9 +56,10 @@ bool ShaderSwapper::CompileShader(std::string vertexShaderName, std::string pixe
 	}
 	if (pixelShaderName != "" && pixelShader != NULL)
 	{
+		//Pixel shader
 		const std::string pixelShaderFullPath = "Shaders/" + pixelShaderName;
 		const std::wstring pixelShaderFullPathW = std::wstring(pixelShaderFullPath.begin(), pixelShaderFullPath.end());
-		result = D3DCompileFromFile(pixelShaderFullPathW.c_str(), NULL, D3D_COMPILE_STANDARD_FILE_INCLUDE, "main", "ps_5_0", D3D10_SHADER_ENABLE_STRICTNESS, 0, &pixelShaderBuffer, &errorBlob);
+		result = D3DCompileFromFile(pixelShaderFullPathW.c_str(), NULL, D3D_COMPILE_STANDARD_FILE_INCLUDE, pixelFunction.c_str(), "ps_5_0", D3D10_SHADER_ENABLE_STRICTNESS, 0, &pixelShaderBuffer, &errorBlob);
 		if (FAILED(result))
 		{
 			if (errorBlob)

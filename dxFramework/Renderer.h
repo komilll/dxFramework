@@ -61,8 +61,11 @@ private:
 	void SetConstantBuffers();
 
 	void DrawSkybox();
-	bool CreateSkyboxTexture();
 	void ConvoluteDiffuseSkybox();
+	void ConvoluteSpecularSkybox();
+	bool ConstructCubemap(std::array<std::wstring, 6> textureNames, ID3D11ShaderResourceView** cubemapView);
+	bool CreateSkyboxCubemap();
+	bool CreateDiffuseCubemapIBL();
 
 	void RenderToBackBuffer(RenderTexture* texture);
 	void RenderGBuffer(Renderer::GBufferType type);
@@ -135,7 +138,8 @@ private:
 
 	typedef struct _specialBufferPrecomputeIBLStruct {
 		int cubemapFaceIndex;
-		XMFLOAT3 padding;
+		float roughness;
+		XMFLOAT2 padding;
 	} SpecialBufferPrecomputeIBLStruct;
 	static_assert((sizeof(SpecialBufferPrecomputeIBLStruct) % 16) == 0, "SpecialBufferPrecomputeIBLStruct size must be 16-byte aligned");
 
@@ -168,8 +172,9 @@ private:
 
 	//Shader data
 	ID3D11SamplerState* m_baseSamplerState				= NULL;
-	ID3D11Texture2D* m_skyboxResource					= NULL;
 	ID3D11ShaderResourceView* m_skyboxResourceView		= NULL;
+	ID3D11ShaderResourceView* m_diffuseIBLResourceView  = NULL;
+	ID3D11ShaderResourceView* m_specularIBLResourceView = NULL;
 	ID3D11Resource* m_baseResource						= NULL;
 	ID3D11ShaderResourceView* m_baseResourceView		= NULL;
 	ID3D11Resource* m_normalResource					= NULL;
@@ -186,6 +191,7 @@ private:
 	RenderTexture* m_ssaoBufferTexture			 = NULL;
 	RenderTexture* m_backBufferRenderTexture	 = NULL;
 	RenderTexture* m_diffuseConvolutionTexture	 = NULL;
+	RenderTexture* m_specularConvolutionTexture	 = NULL;
 	ModelDX* m_backBufferQuadModel				 = NULL;
 	ModelDX* m_bunnyModel						 = NULL;
 	ModelDX* m_skyboxModel						 = NULL;
@@ -204,7 +210,8 @@ private:
 	ID3D11PixelShader* m_pixelShaderSSAO			= NULL;
 	ID3D11PixelShader* m_pixelShaderBlurSSAO		= NULL;
 	ID3D11PixelShader* m_pixelShaderSkybox			= NULL;
-	ID3D11PixelShader* m_pixelShaderPrecomputeIBL   = NULL;
+	ID3D11PixelShader* m_pixelShaderDiffuseIBL		= NULL;
+	ID3D11PixelShader* m_pixelShaderSpecularIBL     = NULL;
 
 	//Postprocess classes
 	ShaderSSAO* m_ssao	= NULL;

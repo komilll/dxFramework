@@ -103,7 +103,7 @@ HRESULT Main::Run(std::shared_ptr<DeviceManager> deviceManager, std::shared_ptr<
 		}
 		else
 		{
-			if (renderer->CreateSkyboxTexture())
+			if (renderer->CreateSkyboxCubemap())
 			{
 				break;
 			}

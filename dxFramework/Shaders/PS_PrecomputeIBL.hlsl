@@ -5,6 +5,11 @@
 #include <ALL_UberBuffer.hlsl> //UberBuffer
 #include <HammerslaySequence.hlsl>
 
+SamplerState baseSampler : register(s0);
+TextureCube<float4> skyboxTexture      : register(t4);
+TextureCube<float4> diffuseIBLTexture  : register(t5);
+TextureCube<float4> specularIBLTexture : register(t6);
+
 const static float PI       = 3.14159265358979323846;
 const static float INV_PI   = 0.31830988618379067154;
 const static float INV_2PI  = 0.15915494309189533577;
@@ -13,11 +18,9 @@ const static float INV_4PI  = 0.07957747154594766788;
 cbuffer PrecomputeIBLBuffer : register(b13)
 {
     int g_currentCubemapFace;
-    float3 g_paddingPrecomputeIBL;
+    float g_roughnessIBL;
+    float2 g_paddingPrecomputeIBL;
 }
-
-SamplerState baseSampler : register(s0);
-TextureCube<float4> skyboxTexture : register(t0);
 
 #define PI 3.14159265f
 
@@ -37,9 +40,9 @@ float3 GetNormalVector(float2 uv)
 
 float3 UniformSampleSphere(float u1, float u2)
 {
-    float z = 1.0 - 2.0 * u1;
+    float z = 1.0 - 2.0 * u1; //u1 = [0, 1]; z = [-1, 1]
     float r = sqrt(1.0 - z*z);
-    float phi = 2.0 * PI * u2;
+    float phi = 2.0 * PI * u2; //u2 = [0, 1] - low-discrepancy
     float x = r * cos(phi);
     float y = r * sin(phi);
     return float3(x, y, z);
@@ -60,36 +63,53 @@ float2 HammersleyDistribution(uint index, uint sampleCount)
     return float2(float(index) / float(sampleCount), BitwiseInverseInRange(index));
 }
 
-float4 main(PixelInputType input) : SV_TARGET
+float3 ImportanceSamplingGGX(float2 Xi, float3 N, float roughness)
 {
-    //https://learnopengl.com/code_viewer_gh.php?code=src/6.pbr/2.1.2.ibl_irradiance/2.1.2.irradiance_convolution.fs
-    //input.position from VS_Skybox.hlsl
-    // const float3 N = GetNormalVector(input.uv);
+    float a = roughness*roughness;
+	
+    float phi = 2.0 * PI * Xi.x;
+    float cosTheta = sqrt((1.0 - Xi.y) / (1.0 + (a*a - 1.0) * Xi.y));
+    float sinTheta = sqrt(1.0 - cosTheta*cosTheta);
+	
+    float3 H = 0;
+    H.x = cos(phi) * sinTheta;
+    H.y = sin(phi) * sinTheta;
+    H.z = cosTheta;
+	
+    float3 up        = abs(N.z) < 0.999 ? float3(0.0, 0.0, 1.0f) : float3(1.0f, 0.0, 0.0);
+    float3 tangent   = normalize(cross(up, N));
+    float3 bitangent = cross(N, tangent);
+	
+    return normalize(tangent * H.x + bitangent * H.y + N * H.z);
+}
 
-    // float3 irradiance = 0;
-    // float3 up = float3(0, 1, 0);
-    // float3 right = cross(up, N);
-    // up = cross(N, right);
+float4 SpecularPrecompute(PixelInputType input) : SV_TARGET
+{
+    float3 specularLighting = 0;
+    float weightSum = 0;
+    const float3 R = normalize(GetNormalVector(input.uv));
+    const float3 V = R;
+    const float3 N = R;
 
-    // float sampleDelta = 0.025;
-    // float samplesCount = 0;
-    // for (float phi = 0.0; phi < 2.0 * PI; phi += sampleDelta)
-    // {
-    //     for (float theta = 0.0; theta < 0.5 * PI; theta += sampleDelta)
-    //     {
-    //         //https://cdn2.unrealengine.com/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf#page=4&zoom=120,-297,352
-    //         const float3 tangent = float3(sin(theta) * cos(phi), sin(theta) * sin(phi), cos(theta));
-    //         const float3 sampleVector = tangent.x * right + tangent.y * up + tangent.z * N;
+    const uint sampleCount = 1024;
+    for (uint i = 0; i < sampleCount; ++i)
+    {
+        float2 Xi = HammersleyDistribution(i, sampleCount);
+        float3 H = ImportanceSamplingGGX(Xi, N, g_roughnessIBL);
+        float3 L = 2 * dot(V, H) * H - V;
+        const float NoL = max(dot(V, L), 0);
+        if (NoL > 0)
+        {
+            specularLighting += skyboxTexture.SampleLevel(baseSampler, L, 0).xyz * NoL;    
+            weightSum += NoL;        
+        }
+    }
+    return float4(specularLighting / weightSum, 1.0f);
+}
 
-    //         irradiance += skyboxTexture.Sample(baseSampler, sampleVector).rgb * cos(theta) * sin(theta);
-    //         samplesCount++;
-    //     }
-    // }
-
-    // return float4(PI * irradiance * (1.0f / float(samplesCount)), 1.0f);
-
+float4 DiffusePrecompute(PixelInputType input) : SV_TARGET
+{
     float3 irradiance = 0;
-
     const float3 N = normalize(GetNormalVector(input.uv));
     const float3 V = N;
 
@@ -107,6 +127,16 @@ float4 main(PixelInputType input) : SV_TARGET
     }
 
     return float4(irradiance / (float) sampleCount, 1.0f);
+}
+
+float4 DiffuseIrradianceByLearnOpenGL(PixelInputType input) : SV_TARGET
+{
+    // Similar results to hammerslay sequence but brighter pixels provide too much contribution
+    // Also areas in the middle of texture are not correctly sampled, introduce 1-pixel dot in the middle
+    // or doesn't take into account other pixels as much as they should
+    // https://learnopengl.com/PBR/IBL/Diffuse-irradiance
+    
+    return float4(0, 0, 0, 1);
 }
 
 #endif //_PS_PRECOMPUTE_IBL_HLSL

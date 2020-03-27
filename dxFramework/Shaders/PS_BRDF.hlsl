@@ -1,15 +1,12 @@
 #include <PS_Input.hlsl> //PixelInputType
 #include <ALL_SettingsBRDF.hlsl>
 #include <CBuffer_BindingsBRDF.hlsl>
-#include <PS_IBL.hlsl>
+#include <PS_PrecomputeIBL.hlsl>
 
 Texture2D albedoTexture 	: register(t0);
 Texture2D roughnessTexture  : register(t1);
 Texture2D normalTexture 	: register(t2);
 Texture2D metallicTexture 	: register(t3);
-
-#define PI 3.14159265f
-#define invPI 1.0f / 3.14159265f
 
 //Normal distribution functions
 float Specular_D_Beckmann(float roughness, float NoH)
@@ -233,6 +230,8 @@ float4 main(PixelInputType input) : SV_TARGET
 	}
 	F = saturate(F);
 	
+	const float3 prefilteredDiffuse = diffuseIBLTexture.Sample(baseSampler, N).rgb;
+	const float3 prefilteredSpecular = 0;
 	const float3 diffuseColor = albedo - albedo * metallic;
 	const float3 specularColor = lerp(0.04f, albedo, metallic);
 	const float kS = F;
@@ -242,12 +241,16 @@ float4 main(PixelInputType input) : SV_TARGET
 	const float denominatorBRDF = max((4.0f * max(NoV, 0.0f) * max(NoL, 0.0f)), 0.001f);
 	const float BRDF = numeratorBRDF / denominatorBRDF;
 
-	const float3 spec = saturate(albedo * BRDF) * specularColor;
+	const float3 spec = saturate(albedo * BRDF) * specularColor * kS;
 
 	const float ambient = 0.05f;
 	// const float3 diff = saturate(NoL) * diffuseColor;
 
-	const float3 diff = saturate(invPI * Diffuse_Disney(NoV, NoL, LoH, roughness)) * diffuseColor;
+	// const float3 diff = saturate(invPI * Diffuse_Disney(NoV, NoL, LoH, roughness)) * diffuseColor;
+	float3 diff = saturate(Diffuse_Disney(NoV, NoL, LoH, roughness)) * kD;// * diffuseColor;
+	diff = saturate(diff / PI);
+
+	return float4(diff, 1.0f);
 
 	if (g_debugType == DEBUG_NONE){
 		// const float3 specularIBL = SpecularIBL(roughness, N) * specularColor * NoL;// * BRDF * NoL;
