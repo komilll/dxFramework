@@ -53,6 +53,11 @@ public:
 	void AddCameraRotation(float x, float y, float z);
 	void AddCameraRotation(XMFLOAT3 addRot);
 
+public:
+	//CONST VARIABLES
+	static const unsigned int SPECULAR_CONVOLUTION_MIPS = 6;
+	static_assert(SPECULAR_CONVOLUTION_MIPS >= 1 && SPECULAR_CONVOLUTION_MIPS <= 9, "Mip levels must be between 1 and 9 inclusively");
+
 private:
 	HRESULT CreateConstantBuffers();
 	bool CreateShaders(std::string pixelShaderName, std::string vertexShaderName = "VS_Base.hlsl");
@@ -61,9 +66,10 @@ private:
 	void SetConstantBuffers();
 
 	void DrawSkybox();
-	void ConvoluteDiffuseSkybox();
+	bool ConvoluteDiffuseSkybox();
 	void ConvoluteSpecularSkybox();
 	bool ConstructCubemap(std::array<std::wstring, 6> textureNames, ID3D11ShaderResourceView** cubemapView);
+	bool ConstructCubemapFromTextures(std::array<RenderTexture*, SPECULAR_CONVOLUTION_MIPS * 6> textureFaces, ID3D11ShaderResourceView** cubemapView);
 	bool CreateSkyboxCubemap();
 	bool CreateDiffuseCubemapIBL();
 
@@ -191,7 +197,7 @@ private:
 	RenderTexture* m_ssaoBufferTexture			 = NULL;
 	RenderTexture* m_backBufferRenderTexture	 = NULL;
 	RenderTexture* m_diffuseConvolutionTexture	 = NULL;
-	RenderTexture* m_specularConvolutionTexture	 = NULL;
+	std::array<RenderTexture*, SPECULAR_CONVOLUTION_MIPS * 6> m_specularConvolutionTexture;
 	ModelDX* m_backBufferQuadModel				 = NULL;
 	ModelDX* m_bunnyModel						 = NULL;
 	ModelDX* m_skyboxModel						 = NULL;

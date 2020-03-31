@@ -35,7 +35,7 @@ Renderer::Renderer(std::shared_ptr<DeviceManager> deviceManager)
 	m_ssaoBufferTexture = new RenderTexture(1280, 720, m_deviceManager->GetDevice(), DXGI_FORMAT_R32_FLOAT);
 	m_backBufferRenderTexture = new RenderTexture(1280, 720, m_deviceManager->GetDevice());
 	m_diffuseConvolutionTexture = new RenderTexture(256, 256, m_deviceManager->GetDevice());
-	m_specularConvolutionTexture = new RenderTexture(256, 256, m_deviceManager->GetDevice());
+	for (auto& texture : m_specularConvolutionTexture) { texture = new RenderTexture(256, 256, m_deviceManager->GetDevice()); }
 	
 	m_backBufferQuadModel = new ModelDX();
 	m_backBufferQuadModel->SetFullScreenRectangleModel(m_deviceManager->GetDevice());
@@ -168,7 +168,7 @@ void Renderer::Render()
 		//return;
 
 		m_profiler->StartProfiling("Main render loop");
-		for (int x = 0; x < 1; ++x)
+		for (int x = 0; x < 5; ++x)
 		{
 			for (int y = 0; y < 5; ++y)
 			{
@@ -228,13 +228,14 @@ void Renderer::Render()
 		}
 		m_profiler->EndProfiling("Main render loop");
 
-		//DrawSkybox();
+		DrawSkybox();
 		//RenderToBackBuffer(m_renderTexture);
-		static bool bConvolute = true;
-		if (bConvolute)
+		static int counterToStartAction = 100;
+		counterToStartAction--;
+		if (counterToStartAction == 0)
 		{
-			bConvolute = false;
 			ConvoluteDiffuseSkybox();
+			ConvoluteSpecularSkybox();
 		}
 
 		if (DO_SCREENSHOT_NEXT_FRAME)
@@ -532,20 +533,19 @@ void Renderer::DrawSkybox()
 
 bool Renderer::CreateSkyboxCubemap()
 {
-	std::array<std::wstring, 6> filenames{ L"Resources/Skyboxes/posx.jpg", L"Resources/Skyboxes/negx.jpg", L"Resources/Skyboxes/posy.jpg", L"Resources/Skyboxes/negy.jpg", L"Resources/Skyboxes/posz.jpg", L"Resources/Skyboxes/negz.jpg" };
-	//std::array<std::wstring, 6> filenames{ L"Resources/Skyboxes/Trees/posx.bmp", L"Resources/Skyboxes/Trees/negx.bmp", L"Resources/Skyboxes/Trees/posy.bmp", L"Resources/Skyboxes/Trees/negy.bmp", L"Resources/Skyboxes/Trees/posz.bmp", L"Resources/Skyboxes/Trees/negz.bmp" };
+	//std::array<std::wstring, 6> filenames{ L"Resources/Skyboxes/posx.jpg", L"Resources/Skyboxes/negx.jpg", L"Resources/Skyboxes/posy.jpg", L"Resources/Skyboxes/negy.jpg", L"Resources/Skyboxes/posz.jpg", L"Resources/Skyboxes/negz.jpg" };
+	std::array<std::wstring, 6> filenames{ L"Resources/Skyboxes/Trees/posx.bmp", L"Resources/Skyboxes/Trees/negx.bmp", L"Resources/Skyboxes/Trees/posy.bmp", L"Resources/Skyboxes/Trees/negy.bmp", L"Resources/Skyboxes/Trees/posz.bmp", L"Resources/Skyboxes/Trees/negz.bmp" };
 	return ConstructCubemap(filenames, &m_skyboxResourceView);
 }
 
-void Renderer::ConvoluteDiffuseSkybox()
+bool Renderer::ConvoluteDiffuseSkybox()
 {
 	std::array<std::wstring, 6> filenames{ L"Resources/Skyboxes/ibl_posx.png", L"Resources/Skyboxes/ibl_negx.png", L"Resources/Skyboxes/ibl_posy.png", L"Resources/Skyboxes/ibl_negy.png", L"Resources/Skyboxes/ibl_posz.png", L"Resources/Skyboxes/ibl_negz.png" };
+
 	for (int i = 0; i < 6; ++i)
 	{
 		ID3D11DeviceContext* context = m_deviceManager->GetDeviceContext();
-
 		m_diffuseConvolutionTexture->SetAsActiveTarget(context, NULL, true, false, XMFLOAT4{ 0,0,0,0 });
-
 		//m_deviceManager->SetBackBufferRenderTarget();
 		m_indexCount = m_backBufferQuadModel->Render(context);
 
@@ -587,57 +587,64 @@ void Renderer::ConvoluteDiffuseSkybox()
 		context->DrawIndexed(m_indexCount, 0, 0);
 		SaveTextureToFile(m_diffuseConvolutionTexture, filenames[i].c_str());
 	}
+	return true;
 }
 
 void Renderer::ConvoluteSpecularSkybox()
 {
-	std::array<std::wstring, 6> filenames{ L"Resources/Skyboxes/ibl_s_posx.png", L"Resources/Skyboxes/ibl_s_negx.png", L"Resources/Skyboxes/ibl_s_posy.png", L"Resources/Skyboxes/ibl_s_negy.png", L"Resources/Skyboxes/ibl_s_posz.png", L"Resources/Skyboxes/ibl_s_negz.png" };
+	ID3D11DeviceContext* context = m_deviceManager->GetDeviceContext();
+
+	context->VSSetShader(m_vertexShaderBackBuffer, NULL, 0);
+	context->PSSetShader(m_pixelShaderSpecularIBL, NULL, 0);
+
+	m_indexCount = m_backBufferQuadModel->Render(context);
+
+	static const std::array<std::wstring, 6> filenames{ L"Resources/Skyboxes/ibl_s_posx", L"Resources/Skyboxes/ibl_s_negx", L"Resources/Skyboxes/ibl_s_posy", L"Resources/Skyboxes/ibl_s_negy", L"Resources/Skyboxes/ibl_s_posz", L"Resources/Skyboxes/ibl_s_negz" };
 	for (int i = 0; i < 6; ++i)
+	{	
+		for (int roughnessIndex = 0; roughnessIndex < SPECULAR_CONVOLUTION_MIPS; roughnessIndex++)
+		{
+			m_specularConvolutionTexture.at(roughnessIndex + i * SPECULAR_CONVOLUTION_MIPS)->SetViewportSize(static_cast<float>(256 << roughnessIndex), static_cast<float>(256 << roughnessIndex));
+			m_specularConvolutionTexture.at(roughnessIndex + i * SPECULAR_CONVOLUTION_MIPS)->SetAsActiveTarget(context, NULL, true, false, XMFLOAT4{ 0,0,0,0 });
+			if (m_constantBuffer)
+			{
+				D3D11_MAPPED_SUBRESOURCE mappedResource;
+				const HRESULT result = context->Map(m_constantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
+				assert(SUCCEEDED(result));
+				ConstantBufferStruct* dataPtr = static_cast<ConstantBufferStruct*>(mappedResource.pData);
+
+				dataPtr->world = m_constantBufferData.world;
+				dataPtr->view = m_constantBufferData.view;
+				dataPtr->projection = m_constantBufferData.projection;
+				context->Unmap(m_constantBuffer, 0);
+
+				context->VSSetConstantBuffers(0, 1, &m_constantBuffer);
+			}
+			if (m_specialBufferPrecomputeIBL)
+			{
+				D3D11_MAPPED_SUBRESOURCE mappedResource;
+				const HRESULT result = context->Map(m_specialBufferPrecomputeIBL, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
+				assert(SUCCEEDED(result));
+				SpecialBufferPrecomputeIBLStruct* dataPtr = static_cast<SpecialBufferPrecomputeIBLStruct*>(mappedResource.pData);
+
+				dataPtr->cubemapFaceIndex = i;
+				dataPtr->roughness = static_cast<float>(roughnessIndex) / static_cast<float>(max(SPECULAR_CONVOLUTION_MIPS - 1, 1));
+				dataPtr->padding = XMFLOAT2{};
+				context->Unmap(m_specialBufferPrecomputeIBL, 0);
+
+				context->PSSetConstantBuffers(13, 1, &m_specialBufferPrecomputeIBL);
+			}
+			if (m_baseSamplerState) context->PSSetSamplers(0, 1, &m_baseSamplerState);
+			if (m_skyboxResourceView) context->PSSetShaderResources(0, 1, &m_skyboxResourceView);
+
+			context->DrawIndexed(m_indexCount, 0, 0);
+			//SaveTextureToFile(m_specularConvolutionTexture, (filenames[i] + std::to_wstring(roughness) + L".png").c_str());
+		}
+	}
+
+	if (SPECULAR_CONVOLUTION_MIPS > 0)
 	{
-		ID3D11DeviceContext* context = m_deviceManager->GetDeviceContext();
-
-		m_specularConvolutionTexture->SetAsActiveTarget(context, NULL, true, false, XMFLOAT4{ 0,0,0,0 });
-
-		//m_deviceManager->SetBackBufferRenderTarget();
-		m_indexCount = m_backBufferQuadModel->Render(context);
-
-		context->VSSetShader(m_vertexShaderBackBuffer, NULL, 0);
-		context->PSSetShader(m_pixelShaderSpecularIBL, NULL, 0);
-
-		if (m_constantBuffer)
-		{
-			D3D11_MAPPED_SUBRESOURCE mappedResource;
-			const HRESULT result = context->Map(m_constantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
-			assert(SUCCEEDED(result));
-			ConstantBufferStruct* dataPtr = static_cast<ConstantBufferStruct*>(mappedResource.pData);
-
-			dataPtr->world = m_constantBufferData.world;
-			dataPtr->view = m_constantBufferData.view;
-			dataPtr->projection = m_constantBufferData.projection;
-			context->Unmap(m_constantBuffer, 0);
-
-			context->VSSetConstantBuffers(0, 1, &m_constantBuffer);
-		}
-
-		if (m_specialBufferPrecomputeIBL)
-		{
-			D3D11_MAPPED_SUBRESOURCE mappedResource;
-			const HRESULT result = context->Map(m_specialBufferPrecomputeIBL, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
-			assert(SUCCEEDED(result));
-			SpecialBufferPrecomputeIBLStruct* dataPtr = static_cast<SpecialBufferPrecomputeIBLStruct*>(mappedResource.pData);
-
-			dataPtr->cubemapFaceIndex = i;
-			dataPtr->roughness = 0.5f;
-			dataPtr->padding = XMFLOAT2{};
-			context->Unmap(m_specialBufferPrecomputeIBL, 0);
-
-			context->PSSetConstantBuffers(13, 1, &m_specialBufferPrecomputeIBL);
-		}
-		if (m_baseSamplerState) context->PSSetSamplers(0, 1, &m_baseSamplerState);
-		if (m_skyboxResourceView) context->PSSetShaderResources(0, 1, &m_skyboxResourceView);
-
-		context->DrawIndexed(m_indexCount, 0, 0);
-		SaveTextureToFile(m_specularConvolutionTexture, filenames[i].c_str());
+		ConstructCubemapFromTextures(m_specularConvolutionTexture, &m_specularIBLResourceView);
 	}
 }
 
@@ -693,6 +700,66 @@ bool Renderer::ConstructCubemap(std::array<std::wstring, 6> textureNames, ID3D11
 				break;
 
 			context->CopySubresourceRegion(texArray, D3D11CalcSubresource(mipLevel, i, texDesc.MipLevels), 0, 0, 0, textures[i], mipLevel, &sourceRegion);
+		}
+	}
+
+	// Create a resource view to the texture array.
+	D3D11_SHADER_RESOURCE_VIEW_DESC viewDesc;
+	viewDesc.Format = texDesc.Format;
+	viewDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURECUBE;
+	viewDesc.TextureCube.MostDetailedMip = 0;
+	viewDesc.TextureCube.MipLevels = texDesc.MipLevels;
+
+	if (FAILED(m_deviceManager->GetDevice()->CreateShaderResourceView(texArray, &viewDesc, cubemapView)))
+		return false;
+
+	return true;
+}
+
+bool Renderer::ConstructCubemapFromTextures(std::array<RenderTexture*, SPECULAR_CONVOLUTION_MIPS * 6> textureFaces, ID3D11ShaderResourceView ** cubemapView)
+{
+	D3D11_TEXTURE2D_DESC importedTexDesc;
+	((ID3D11Texture2D*)textureFaces[0]->GetResource())->GetDesc(&importedTexDesc);
+
+	D3D11_TEXTURE2D_DESC texDesc;
+	texDesc.Width = importedTexDesc.Width;
+	texDesc.Height = importedTexDesc.Height;
+	texDesc.MipLevels = SPECULAR_CONVOLUTION_MIPS;
+	texDesc.ArraySize = 6 * SPECULAR_CONVOLUTION_MIPS;
+	texDesc.Format = importedTexDesc.Format;
+	texDesc.CPUAccessFlags = 0;
+	texDesc.SampleDesc.Count = 1;
+	texDesc.SampleDesc.Quality = 0;
+	texDesc.Usage = D3D11_USAGE_DEFAULT;
+	texDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+	texDesc.CPUAccessFlags = 0;
+	texDesc.MiscFlags = D3D11_RESOURCE_MISC_TEXTURECUBE;
+
+	ID3D11Texture2D* texArray = 0;
+	if (FAILED(m_deviceManager->GetDevice()->CreateTexture2D(&texDesc, 0, &texArray)))
+		return false;
+
+	// Copy individual texture elements into texture array.
+	ID3D11DeviceContext* context = m_deviceManager->GetDeviceContext();
+	D3D11_BOX sourceRegion;
+
+	//Here i copy the mip map levels of the textures
+	for (UINT i = 0; i < 6; ++i)
+	{
+		for (UINT mipLevel = 0; mipLevel < texDesc.MipLevels; mipLevel++)
+		{
+			sourceRegion.left = 0;
+			sourceRegion.right = (texDesc.Width >> mipLevel);
+			sourceRegion.top = 0;
+			sourceRegion.bottom = (texDesc.Height >> mipLevel);
+			sourceRegion.front = 0;
+			sourceRegion.back = 1;
+
+			//test for overflow
+			if (sourceRegion.bottom == 0 || sourceRegion.right == 0)
+				break;
+
+			context->CopySubresourceRegion(texArray, D3D11CalcSubresource(mipLevel, i, texDesc.MipLevels), 0, 0, 0, textureFaces[mipLevel + i * SPECULAR_CONVOLUTION_MIPS]->GetResource(), 0, &sourceRegion);
 		}
 	}
 
@@ -860,7 +927,7 @@ void Renderer::RenderSSAO()
 
 void Renderer::SaveTextureToFile(RenderTexture * texture, const wchar_t* name)
 {
-	if (texture && m_deviceManager->GetDeviceContext())
+	if (texture && texture->GetResourceView() && m_deviceManager->GetDeviceContext())
 	{
 		ID3D11Resource* resource;
 		texture->GetResourceView()->GetResource(&resource);

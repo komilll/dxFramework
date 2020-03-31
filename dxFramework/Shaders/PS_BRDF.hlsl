@@ -134,11 +134,10 @@ float4 main(PixelInputType input) : SV_TARGET
 	input.tangent = normalize(input.tangent);
 	input.binormal = normalize(input.binormal);
 
-	float3 N;
+	float3 N = 0;
 	if (g_hasNormal > 0){
-		const matrix<float, 3, 3> TBN = { input.tangent, input.binormal, input.normal };
-		N = normalTexture.Sample(baseSampler, input.uv).rgb;
-		N = normalize(N * 2.0f - 1.0f);
+		float3x3 TBN = transpose(float3x3(input.tangent, input.binormal, input.normal));
+		N = normalTexture.Sample(baseSampler, input.uv).rgb * 2.0 - 1.0;
 		N = normalize(mul(TBN, N));
 	}
 	else{
@@ -149,13 +148,15 @@ float4 main(PixelInputType input) : SV_TARGET
 	const float3 L = normalize(input.pointToLight.xyz);
 	const float intensity = input.pointToLight.w;	
 	const float3 H = normalize(L + V);
-	
+
 	const float NoV = abs(dot(N, V)) + 0.0001f; //avoid artifact - as in Frostbite
 	const float NoH = saturate(dot(N, H));
 	const float LoH = saturate(dot(L, H));
 	const float LoV = saturate(dot(L, V));
 	const float VoH = saturate(dot(V, H));
 	const float NoL = saturate(dot(L, N));
+
+	const float3 R = 2.0 * NoV * N - V;
 
 	float3 albedo = g_hasAlbedo == 0 ? float3(1.0f, 0.0f, 0.0f) : albedoTexture.Sample(baseSampler, input.uv);
 	albedo = saturate(albedo);
@@ -231,7 +232,7 @@ float4 main(PixelInputType input) : SV_TARGET
 	F = saturate(F);
 	
 	const float3 prefilteredDiffuse = diffuseIBLTexture.Sample(baseSampler, N).rgb;
-	const float3 prefilteredSpecular = 0;
+	const float3 prefilteredSpecular = specularIBLTexture.SampleLevel(baseSampler, R, 0);
 	const float3 diffuseColor = albedo - albedo * metallic;
 	const float3 specularColor = lerp(0.04f, albedo, metallic);
 	const float kS = F;
@@ -250,18 +251,18 @@ float4 main(PixelInputType input) : SV_TARGET
 	float3 diff = saturate(Diffuse_Disney(NoV, NoL, LoH, roughness)) * kD;// * diffuseColor;
 	diff = saturate(diff / PI);
 
-	return float4(diff, 1.0f);
-
 	if (g_debugType == DEBUG_NONE){
 		// const float3 specularIBL = SpecularIBL(roughness, N) * specularColor * NoL;// * BRDF * NoL;
 		// return float4(specularIBL, 1.0f);
+		return float4(prefilteredSpecular, 1.0f);
 		return float4(diff + spec, 1.0f);
 	}
 	if (g_debugType == DEBUG_DIFF){
 		return float4(diff, 1.0f);
 	}
 	if (g_debugType == DEBUG_SPEC){
-		return float4(spec, 1.0f);
+		// return float4(spec, 1.0f);
+		return float4(prefilteredSpecular, 1.0f);
 	}
 	if (g_debugType == DEBUG_ALBEDO){
 		return float4(albedo, 1.0f);

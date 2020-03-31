@@ -36,7 +36,10 @@ unsigned int ModelDX::Render(ID3D11DeviceContext* context)
 	context->IASetIndexBuffer(m_indexBuffer, DXGI_FORMAT_R32_UINT, 0);
 	context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-	return GetMesh(0).indexCount;
+	if (m_meshes.size() > 0)
+		return GetMesh(0).indexCount;
+	else
+		return 0;
 }
 
 void ModelDX::ProcessNode(aiNode * node, const aiScene * scene)

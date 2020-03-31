@@ -7,10 +7,15 @@ RenderTexture::RenderTexture(int width, int height, ID3D11Device * device, DXGI_
 	assert(InitializeRenderTexture(width, height, device, format));
 }
 
-void RenderTexture::SetAsActiveTarget(ID3D11DeviceContext * context, ID3D11DepthStencilView * depthStencilView, bool clearTarget /* = true */, bool clearDepth /* = false */, DirectX::XMFLOAT4 clearColor /* = { 0.098f, 0.439f, 0.439f, 1.000f } */)
+bool RenderTexture::SetAsActiveTarget(ID3D11DeviceContext * context, ID3D11DepthStencilView * depthStencilView, bool clearTarget /* = true */, bool clearDepth /* = false */, DirectX::XMFLOAT4 clearColor /* = { 0.098f, 0.439f, 0.439f, 1.000f } */)
 {
 	assert(context);
 	//assert(depthStencilView);
+	if (!m_renderTargetView)
+	{
+		return false;
+	}
+
 	context->OMSetRenderTargets(1, &m_renderTargetView, depthStencilView);
 
 	if (clearTarget){
@@ -22,11 +27,23 @@ void RenderTexture::SetAsActiveTarget(ID3D11DeviceContext * context, ID3D11Depth
 	}
 
 	context->RSSetViewports(1, &m_viewport);
+
+	return true;
 }
 
 ID3D11Resource * RenderTexture::GetResource()
 {
 	return static_cast<ID3D11Resource*>(m_texture2D);
+}
+
+void RenderTexture::SetViewportSize(float width, float height)
+{
+	m_viewport.Width = static_cast<float>(width);
+	m_viewport.Height = static_cast<float>(height);
+	m_viewport.MinDepth = 0.0f;
+	m_viewport.MaxDepth = 1.0f;
+	m_viewport.TopLeftY = 0;
+	m_viewport.TopLeftX = 0;
 }
 
 bool RenderTexture::InitializeRenderTexture(int width, int height, ID3D11Device * device, DXGI_FORMAT format)

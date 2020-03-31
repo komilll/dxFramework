@@ -41,6 +41,7 @@ PixelInputType main(VertexInputType input)
 	output.binormal = 	normalize( mul(input.binormal, (float3x3)worldMatrix) );
 
 	output.viewRay.xyz = positionWS.xyz - g_viewerPosition;
+	// output.viewDir.xyz = normalize(g_viewerPosition.xyz - positionWS.xyz);
 	output.viewDir.xyz = normalize(g_viewerPosition.xyz - positionWS.xyz);
 
 	// output.viewRay.xyz = output.position.xyz - g_viewerPosition;

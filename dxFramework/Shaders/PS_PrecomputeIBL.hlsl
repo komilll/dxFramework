@@ -83,11 +83,10 @@ float3 ImportanceSamplingGGX(float2 Xi, float3 N, float roughness)
     return normalize(tangent * H.x + bitangent * H.y + N * H.z);
 }
 
-float4 SpecularPrecompute(PixelInputType input) : SV_TARGET
+float4 SpecularPrecomputeIBL(float3 R)
 {
     float3 specularLighting = 0;
     float weightSum = 0;
-    const float3 R = normalize(GetNormalVector(input.uv));
     const float3 V = R;
     const float3 N = R;
 
@@ -107,10 +106,15 @@ float4 SpecularPrecompute(PixelInputType input) : SV_TARGET
     return float4(specularLighting / weightSum, 1.0f);
 }
 
-float4 DiffusePrecompute(PixelInputType input) : SV_TARGET
+float4 SpecularPrecompute(PixelInputType input) : SV_TARGET
+{
+    const float3 R = normalize(GetNormalVector(input.uv));
+    return SpecularPrecomputeIBL(R);
+}
+
+float4 DiffusePrecomputeIBL(float3 N)
 {
     float3 irradiance = 0;
-    const float3 N = normalize(GetNormalVector(input.uv));
     const float3 V = N;
 
     const uint sampleCount = 1024;
@@ -127,6 +131,12 @@ float4 DiffusePrecompute(PixelInputType input) : SV_TARGET
     }
 
     return float4(irradiance / (float) sampleCount, 1.0f);
+}
+
+float4 DiffusePrecompute(PixelInputType input) : SV_TARGET
+{
+    const float3 N = normalize(GetNormalVector(input.uv));
+    return DiffusePrecomputeIBL(N);
 }
 
 float4 DiffuseIrradianceByLearnOpenGL(PixelInputType input) : SV_TARGET
