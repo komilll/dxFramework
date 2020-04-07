@@ -30,7 +30,6 @@ PixelInputType main(VertexInputType input)
 	
 	output.normal = input.normal;
 	output.uv = input.uv;
-	output.viewRay.xyz = worldPos.xyz - g_viewerPosition;	
 	output.viewDir.xyz = float3(0,0,0);
 	
 	return output;

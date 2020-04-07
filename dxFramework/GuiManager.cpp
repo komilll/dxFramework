@@ -143,8 +143,8 @@ void GuiManager::DrawImGUI()
 
 	ImGui::Begin("Settings");
 	{
-		ImGui::DragFloat3("Direction", &m_renderer->m_directionalLightBufferData.direction.x, 0.01f, -1.0f, 1.0f, "%.2f");
-		ImGui::DragFloat("Intensity", &m_renderer->m_directionalLightBufferData.intensity, 0.01f, 0.0f, 1.0f, "%.2f");
+		ImGui::DragFloat3("Direction", &m_renderer->m_uberBufferData.directionalLightDirection.x, 0.01f, -1.0f, 1.0f, "%.2f");
+		ImGui::DragFloat("Intensity", &m_renderer->m_uberBufferData.directionalLightColor.w, 0.01f, 0.0f, 1.0f, "%.2f");
 		ImGui::ColorPicker3("Color", &m_renderer->m_propertyBufferData.directionalLightColor.x);
 
 		ImGui::LabelText("", "Object properties");

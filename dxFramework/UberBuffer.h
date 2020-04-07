@@ -6,8 +6,12 @@
 using namespace DirectX;
 
 typedef struct _uberBufferStruct {
+	XMFLOAT4 directionalLightColor;
+	XMFLOAT3 directionalLightDirection;
+	float pad1 = 0;
+
 	XMFLOAT3 viewerPosition;
-	float padding;
+	float pad2 = 0;
 } UberBufferStruct;
 static_assert((sizeof(UberBufferStruct) % 16) == 0, "UberBuffer size must be 16-byte aligned");
 

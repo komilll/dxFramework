@@ -2,6 +2,7 @@
 #include <ALL_SettingsBRDF.hlsl>
 #include <CBuffer_BindingsBRDF.hlsl>
 #include <PS_PrecomputeIBL.hlsl>
+//#include <LightSettings.hlsl>
 
 Texture2D albedoTexture 	: register(t0);
 Texture2D roughnessTexture  : register(t1);
@@ -87,21 +88,21 @@ float Specular_G_SchlickGGX(float roughness, float NoV)
 }
 
 //Fresnel functions
-float Specular_F_Schlick(float f0, float VoH)
+float3 Specular_F_Schlick(float3 f0, float VoH)
 {
 	return f0 + (1.0f-f0)*pow(1-VoH, 5.0f);
 }
-float Specular_F_Schlick(float f0, float f90, float VoH)
+float3 Specular_F_Schlick(float3 f0, float3 f90, float VoH)
 {
 	return f0 + (f90-f0)*pow(1.0f-VoH, 5.0f);
 }
 
-float Specular_F_CT(float f0, float VoH)
+float3 Specular_F_CT(float3 f0, float VoH)
 {
-	const float f0Sqrt = sqrt(f0);
-	const float eta = (1.0f+f0Sqrt)/(1.0f-f0Sqrt);
-	const float g = sqrt(eta*eta + VoH*VoH - 1.0f);
-	const float c = VoH;
+	const float3 f0Sqrt = sqrt(f0);
+	const float3 eta = (1.0f+f0Sqrt)/(1.0f-f0Sqrt);
+	const float3 g = sqrt(eta*eta + VoH*VoH - 1.0f);
+	const float3 c = VoH;
 
 	return 0.5f * pow((g-c)/(g+c), 2) * pow((1 + ((g+c)*c-1) / ((g-c)*c + 1)), 2);
 }
@@ -112,8 +113,8 @@ float Diffuse_Disney(float NoV, float NoL, float LoH, float roughness)
 {
 	float  energyBias     = lerp(0, 0.5,  roughness);
 	float  energyFactor   = lerp (1.0, 1.0 / 1.51,  roughness);
-	float  fd90           = energyBias + 2.0 * LoH*LoH * roughness;
-    float f0              = 1.0f;
+	float3  fd90          = energyBias + 2.0 * LoH*LoH * roughness;
+    float3 f0             = 1.0f;
     float lightScatter    = Specular_F_Schlick(f0, fd90, NoL);
     float viewScatter     = Specular_F_Schlick(f0, fd90, NoV);
 	return  lightScatter * viewScatter * energyFactor;
@@ -214,6 +215,8 @@ float4 main(PixelInputType input) : SV_TARGET
 	}
 	G = saturate(G);
 
+    const float3 diffuseColor = albedo - albedo * metallic;
+    const float3 specularColor = lerp(0.04f, albedo, metallic);
 	//F component
 	float F = 0;
 	float ior = 2.5f; //Steel
@@ -224,17 +227,15 @@ float4 main(PixelInputType input) : SV_TARGET
 		F = F0;
 	} 
 	if (g_fresnelType == FRESNEL_SCHLICK){
-		F = Specular_F_Schlick(F0, VoH);
-	}
+        F = Specular_F_Schlick(specularColor, VoH);
+    }
 	if (g_fresnelType == FRESNEL_CT){
-		F = Specular_F_CT(F0, VoH);
-	}
+        F = Specular_F_CT(specularColor, VoH);
+    }
 	F = saturate(F);
 	
 	const float3 prefilteredDiffuse = diffuseIBLTexture.Sample(baseSampler, N).rgb;
-	const float3 prefilteredSpecular = specularIBLTexture.SampleLevel(baseSampler, R, 0);
-	const float3 diffuseColor = albedo - albedo * metallic;
-	const float3 specularColor = lerp(0.04f, albedo, metallic);
+	const float3 prefilteredSpecular = specularIBLTexture.SampleLevel(baseSampler, R, roughness * 5.0);
 	const float kS = F;
 	const float kD = (1.0f - kS) * (1.0f - metallic);
 
@@ -242,7 +243,8 @@ float4 main(PixelInputType input) : SV_TARGET
 	const float denominatorBRDF = max((4.0f * max(NoV, 0.0f) * max(NoL, 0.0f)), 0.001f);
 	const float BRDF = numeratorBRDF / denominatorBRDF;
 
-	const float3 spec = saturate(albedo * BRDF) * specularColor * kS;
+	//const float3 spec = saturate(albedo * BRDF) * specularColor * kS;
+    const float3 spec = numeratorBRDF;
 
 	const float ambient = 0.05f;
 	// const float3 diff = saturate(NoL) * diffuseColor;
@@ -254,15 +256,15 @@ float4 main(PixelInputType input) : SV_TARGET
 	if (g_debugType == DEBUG_NONE){
 		// const float3 specularIBL = SpecularIBL(roughness, N) * specularColor * NoL;// * BRDF * NoL;
 		// return float4(specularIBL, 1.0f);
-		return float4(prefilteredSpecular, 1.0f);
+		//return float4(prefilteredSpecular, 1.0f);
 		return float4(diff + spec, 1.0f);
 	}
 	if (g_debugType == DEBUG_DIFF){
 		return float4(diff, 1.0f);
 	}
 	if (g_debugType == DEBUG_SPEC){
-		// return float4(spec, 1.0f);
-		return float4(prefilteredSpecular, 1.0f);
+        return float4(spec, 1.0f);
+		//return float4(prefilteredSpecular, 1.0f);
 	}
 	if (g_debugType == DEBUG_ALBEDO){
 		return float4(albedo, 1.0f);

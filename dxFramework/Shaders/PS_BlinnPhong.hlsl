@@ -1,4 +1,5 @@
 #include <PS_Input.hlsl> //PixelInputType
+#include <ALL_UberBuffer.hlsl>
 
 float4 main(PixelInputType input) : SV_TARGET
 {
@@ -10,5 +11,5 @@ float4 main(PixelInputType input) : SV_TARGET
 	const float3 H = normalize(L + input.viewDir.xyz);
 	const float3 specular = pow(max(dot(N, H), 0.0f), 32.0f) * 0.1f;
 		
-	return float4(saturate((diffuse + specular) * intensity * g_directionalLightColor), 1.0f);	
+	return float4(saturate((diffuse + specular) * intensity * g_directionalLightColor.xyz), 1.0f);	
 }

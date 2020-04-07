@@ -10,13 +10,12 @@ struct PixelInputType
 	float2 uv: TEXCOORD0;
 	float4 pointToLight : TEXCOORD1;
 	float4 viewDir : TEXCOORD2;
-	float4 viewRay : TEXCOORD3;
 };
 
 cbuffer PropertyBuffer : register(b0)
 {
 	float g_roughness;	
-	float3 g_directionalLightColor;	
+	float3 g_paddingPropertyBuffer;	
 };
 
 #endif //_PS_INPUT_HLSL_

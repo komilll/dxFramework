@@ -8,12 +8,6 @@ cbuffer MatrixBuffer : register(b0)
 	matrix projectionMatrix;
 };
 
-cbuffer DirectionalLightBuffer : register(b1)
-{
-	float3 g_directionalLightDirection;
-	float g_directionalLightIntensity;
-};
-
 struct VertexInputType
 {
 	float3 position : POSITION;
@@ -30,15 +24,13 @@ PixelInputType main(VertexInputType input)
 	output.position = float4(input.position, 1.0f);	
 	
 	output.pointToLight.xyz = g_directionalLightDirection;
-	output.pointToLight.w = g_directionalLightIntensity;
+	output.pointToLight.w = g_directionalLightColor.w;
 	
 	output.position = mul(output.position, worldMatrix);	
 	output.position = mul(output.position, viewMatrix);
-	//output.position = mul(output.position, projectionMatrix);
 	output.normal = input.normal;
 	
-	output.viewRay.xyz = output.position.xyz - g_viewerPosition;
-	output.viewDir.xyz = output.position.xyz - g_directionalLightDirection;
+    output.viewDir.xyz = output.position.xyz - g_directionalLightDirection;
 	
 	output.uv = input.uv;
 	

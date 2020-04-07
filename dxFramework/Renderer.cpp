@@ -12,10 +12,9 @@ Renderer::Renderer(std::shared_ptr<DeviceManager> deviceManager)
 {
 	m_frameCount = 0;
 	m_deviceManager = deviceManager;
-	m_directionalLightBufferData.intensity = 1.0f;
 	//m_directionalLightBufferData.direction = XMFLOAT3{ 0.0f, 1.0f, 1.75f };
-	m_directionalLightBufferData.direction = XMFLOAT3{ 0.0f, 0.0f, 1.0f };
-	m_propertyBufferData.directionalLightColor = XMFLOAT3{ 1,1,1 };
+	m_uberBufferData.directionalLightDirection = XMFLOAT3{ 0.0f, 0.0f, 1.0f };
+	m_uberBufferData.directionalLightColor = XMFLOAT4{ 1,1,1,1 };
 	m_propertyBufferData.roughness = 0.25f;
 
 	//Presentation of suzanne
@@ -42,7 +41,7 @@ Renderer::Renderer(std::shared_ptr<DeviceManager> deviceManager)
 
 	m_bunnyModel = new ModelDX();
 	m_bunnyModel->LoadModel("sphere.obj", m_deviceManager->GetDevice());
-	m_bunnyModel->m_scale = 10.0f;
+	m_bunnyModel->m_scale = 0.08f;
 
 	m_profiler = new Profiler(m_deviceManager->GetDevice(), m_deviceManager->GetDeviceContext());
 
@@ -168,9 +167,11 @@ void Renderer::Render()
 		//return;
 
 		m_profiler->StartProfiling("Main render loop");
-		for (int x = 0; x < 5; ++x)
+		constexpr int columnCount = 5;
+		constexpr int rowCount = 5;
+		for (int x = 0; x < columnCount; ++x)
 		{
-			for (int y = 0; y < 5; ++y)
+			for (int y = 0; y < rowCount; ++y)
 			{
 				m_constantBufferData.world = XMMatrixIdentity();
 				m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixScaling(m_bunnyModel->m_scale, m_bunnyModel->m_scale, m_bunnyModel->m_scale));
@@ -211,8 +212,8 @@ void Renderer::Render()
 					dataPtr->hasRoughness = static_cast<int>(m_roughnessResourceView != NULL);
 					dataPtr->hasMetallic = static_cast<int>(m_metallicResourceView != NULL);
 
-					dataPtr->roughnessValue = max(static_cast<float>(x) * 0.1f, 0.001f);
-					dataPtr->metallicValue = static_cast<float>(y) * 0.25f;
+					dataPtr->roughnessValue = max(static_cast<float>(x) * (1.0f / (columnCount - 1)), 0.001f);
+					dataPtr->metallicValue = static_cast<float>(y) * (1.0f / max(1, (rowCount - 1)));
 					dataPtr->f0 = min(max(m_specialBufferBRDFData.f0, 0.001f), 0.99999f);
 
 					dataPtr->debugType = static_cast<int>(m_debugType);
@@ -230,7 +231,7 @@ void Renderer::Render()
 
 		DrawSkybox();
 		//RenderToBackBuffer(m_renderTexture);
-		static int counterToStartAction = 100;
+		static int counterToStartAction = 10;
 		counterToStartAction--;
 		if (counterToStartAction == 0)
 		{
@@ -314,13 +315,6 @@ HRESULT Renderer::CreateConstantBuffers()
 	constantBufferDesc.StructureByteStride = 0;
 
 	HRESULT result = device->CreateBuffer(&constantBufferDesc, nullptr, &m_constantBuffer);
-	if (FAILED(result))
-	{
-		return result;
-	}
-
-	constantBufferDesc.ByteWidth = sizeof(DirectionalLightBuffer);
-	result = device->CreateBuffer(&constantBufferDesc, nullptr, &m_directionalLightBuffer);
 	if (FAILED(result))
 	{
 		return result;
@@ -441,20 +435,6 @@ void Renderer::MapResourceData()
 		context->Unmap(m_constantBuffer, 0);
 	}
 
-	//MAP DIRECTIONAL LIGHT DATA
-	if (m_directionalLightBuffer)
-	{
-		const HRESULT result = context->Map(m_directionalLightBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
-		if (FAILED(result))
-			return;
-
-		DirectionalLightBuffer* dataPtr = static_cast<DirectionalLightBuffer*>(mappedResource.pData);
-
-		dataPtr->direction = m_directionalLightBufferData.direction;
-		dataPtr->intensity = m_directionalLightBufferData.intensity;
-		context->Unmap(m_directionalLightBuffer, 0);
-	}
-
 	//MAP ADDITIONAL DATA
 	if (m_uberBuffer)
 	{
@@ -465,7 +445,8 @@ void Renderer::MapResourceData()
 		UberBufferStruct* dataPtr = static_cast<UberBufferStruct*>(mappedResource.pData);
 
 		dataPtr->viewerPosition = m_uberBufferData.viewerPosition;
-		dataPtr->padding = m_uberBufferData.padding;
+		dataPtr->directionalLightDirection = m_uberBufferData.directionalLightDirection;
+		dataPtr->directionalLightColor = m_uberBufferData.directionalLightColor;
 		context->Unmap(m_uberBuffer, 0);
 	}
 
@@ -489,8 +470,8 @@ void Renderer::SetConstantBuffers()
 	ID3D11DeviceContext* context = m_deviceManager->GetDeviceContext();
 
 	if (m_constantBuffer) context->VSSetConstantBuffers(0, 1, &m_constantBuffer);
-	if (m_directionalLightBuffer) context->VSSetConstantBuffers(1, 1, &m_directionalLightBuffer);
 	if (m_uberBuffer) context->VSSetConstantBuffers(7, 1, &m_uberBuffer);
+	if (m_uberBuffer) context->PSSetConstantBuffers(7, 1, &m_uberBuffer);
 	if (m_propertyBuffer) context->PSSetConstantBuffers(0, 1, &m_propertyBuffer);
 
 	if (m_baseSamplerState) context->PSSetSamplers(0, 1, &m_baseSamplerState);
@@ -513,7 +494,7 @@ void Renderer::DrawSkybox()
 		MapResourceData();
 
 		if (m_constantBuffer) context->VSSetConstantBuffers(0, 1, &m_constantBuffer);
-		if (m_constantBuffer) context->PSSetConstantBuffers(7, 1, &m_uberBuffer);
+		if (m_uberBuffer) context->PSSetConstantBuffers(7, 1, &m_uberBuffer);
 
 		context->IASetInputLayout(m_inputLayout);
 		context->VSSetShader(m_vertexShaderSkybox, NULL, 0);
@@ -533,8 +514,8 @@ void Renderer::DrawSkybox()
 
 bool Renderer::CreateSkyboxCubemap()
 {
-	//std::array<std::wstring, 6> filenames{ L"Resources/Skyboxes/posx.jpg", L"Resources/Skyboxes/negx.jpg", L"Resources/Skyboxes/posy.jpg", L"Resources/Skyboxes/negy.jpg", L"Resources/Skyboxes/posz.jpg", L"Resources/Skyboxes/negz.jpg" };
-	std::array<std::wstring, 6> filenames{ L"Resources/Skyboxes/Trees/posx.bmp", L"Resources/Skyboxes/Trees/negx.bmp", L"Resources/Skyboxes/Trees/posy.bmp", L"Resources/Skyboxes/Trees/negy.bmp", L"Resources/Skyboxes/Trees/posz.bmp", L"Resources/Skyboxes/Trees/negz.bmp" };
+	std::array<std::wstring, 6> filenames{ L"Resources/Skyboxes/posx.jpg", L"Resources/Skyboxes/negx.jpg", L"Resources/Skyboxes/posy.jpg", L"Resources/Skyboxes/negy.jpg", L"Resources/Skyboxes/posz.jpg", L"Resources/Skyboxes/negz.jpg" };
+	//std::array<std::wstring, 6> filenames{ L"Resources/Skyboxes/Trees/posx.bmp", L"Resources/Skyboxes/Trees/negx.bmp", L"Resources/Skyboxes/Trees/posy.bmp", L"Resources/Skyboxes/Trees/negy.bmp", L"Resources/Skyboxes/Trees/posz.bmp", L"Resources/Skyboxes/Trees/negz.bmp" };
 	return ConstructCubemap(filenames, &m_skyboxResourceView);
 }
 
@@ -604,7 +585,7 @@ void Renderer::ConvoluteSpecularSkybox()
 	{	
 		for (int roughnessIndex = 0; roughnessIndex < SPECULAR_CONVOLUTION_MIPS; roughnessIndex++)
 		{
-			m_specularConvolutionTexture.at(roughnessIndex + i * SPECULAR_CONVOLUTION_MIPS)->SetViewportSize(static_cast<float>(256 << roughnessIndex), static_cast<float>(256 << roughnessIndex));
+			m_specularConvolutionTexture.at(roughnessIndex + i * SPECULAR_CONVOLUTION_MIPS)->SetViewportSize(static_cast<float>(256 >> roughnessIndex), static_cast<float>(256 >> roughnessIndex));
 			m_specularConvolutionTexture.at(roughnessIndex + i * SPECULAR_CONVOLUTION_MIPS)->SetAsActiveTarget(context, NULL, true, false, XMFLOAT4{ 0,0,0,0 });
 			if (m_constantBuffer)
 			{
@@ -875,7 +856,6 @@ void Renderer::RenderSSAO()
 		UberBufferStruct* dataPtr = static_cast<UberBufferStruct*>(mappedResource.pData);
 
 		dataPtr->viewerPosition = m_uberBufferData.viewerPosition;
-		dataPtr->padding = m_uberBufferData.padding;
 		context->Unmap(m_uberBuffer, 0);
 
 		context->VSSetConstantBuffers(7, 1, &m_uberBuffer);

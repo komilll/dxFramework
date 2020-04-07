@@ -4,7 +4,6 @@
 #pragma once
 #include "framework.h"
 #include "DeviceManager.h"
-#include "DirectionalLight.h"
 #include "UberBuffer.h"
 #include "RenderTexture.h"
 #include "ModelDX.h"
@@ -104,12 +103,6 @@ private:
 	} ConstantBufferStruct;
 	static_assert((sizeof(ConstantBufferStruct) % 16) == 0, "Constant Buffer size must be 16-byte aligned");
 
-	typedef struct _directionalLightBuffer {
-		XMFLOAT3 direction;
-		float intensity;
-	} DirectionalLightBuffer;
-	static_assert((sizeof(DirectionalLightBuffer) % 16) == 0, "DirectionalLightBuffer size must be 16-byte aligned");
-
 	typedef struct _propertyBuffer {
 		float roughness;
 		XMFLOAT3 directionalLightColor;
@@ -151,7 +144,6 @@ private:
 
 	//Constant buffers
 	ConstantBufferStruct m_constantBufferData;
-	DirectionalLightBuffer m_directionalLightBufferData;
 	UberBufferStruct m_uberBufferData;
 	PropertyBuffer m_propertyBufferData;
 	SpecialBufferSSAOStruct m_specialBufferSSAOData;
@@ -164,7 +156,6 @@ private:
 
 	//Buffers
 	ID3D11Buffer* m_constantBuffer			   = NULL;
-	ID3D11Buffer* m_directionalLightBuffer     = NULL;
 	ID3D11Buffer* m_uberBuffer				   = NULL;
 	ID3D11Buffer* m_propertyBuffer			   = NULL;
 	ID3D11Buffer* m_specialBufferSSAO		   = NULL;
