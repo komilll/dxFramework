@@ -149,4 +149,49 @@ float4 DiffuseIrradianceByLearnOpenGL(PixelInputType input) : SV_TARGET
     return float4(0, 0, 0, 1);
 }
 
+float Specular_G(float roughness, float NoV)
+{
+    const float a = roughness * roughness;
+    const float k = a / 2.0f;
+    return NoV / (NoV * (1.0f - k) + k);
+}
+
+float2 PrecomputeEnvironmentLUTFin(float NoV, float roughness)
+{
+    const float3 V = float3(sqrt(1.0 - NoV * NoV), 0, NoV);
+    const float3 N = float3(0, 0, 1);
+    float A = 0;
+    float B = 0;
+    
+    const uint sampleCount = 1024*8;
+    for (uint i = 0; i < sampleCount; ++i)
+    {
+        float2 Xi = HammersleyDistribution(i, sampleCount);
+        float3 H = ImportanceSamplingGGX(Xi, N, roughness);
+        float3 L = normalize(2.0 * dot(V, H) * H - V);
+        
+        const float NoL = max(L.z, 0.0);
+        const float NoH = max(H.z, 0.0);
+        const float VoH = max(dot(V, H), 0.0);
+        
+        if (NoL > 0)
+        {
+            float G1 = Specular_G(roughness, NoV);
+            float G2 = Specular_G(roughness, NoL);
+            float G = G1 * G2;
+            
+            G = (G * VoH) / (NoH * NoV);
+            float Fc = pow(1.0 - VoH, 5.0);
+            A += (1.0 - Fc) * G;
+            B += Fc * G;
+        }
+    }
+    return float2(A, B) / sampleCount;
+}
+
+float4 PrecomputeEnvironmentLUT(PixelInputType input) : SV_TARGET
+{
+    return float4(PrecomputeEnvironmentLUTFin(input.uv.x, input.uv.y), 0, 1);
+}
+
 #endif //_PS_PRECOMPUTE_IBL_HLSL

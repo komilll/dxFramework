@@ -90,21 +90,26 @@ float Specular_G_SchlickGGX(float roughness, float NoV)
 //Fresnel functions
 float3 Specular_F_Schlick(float3 f0, float VoH)
 {
-	return f0 + (1.0f-f0)*pow(1-VoH, 5.0f);
+	return f0 + (1.0-f0)*pow(1.0-VoH, 5.0);
 }
 float3 Specular_F_Schlick(float3 f0, float3 f90, float VoH)
 {
-	return f0 + (f90-f0)*pow(1.0f-VoH, 5.0f);
+	return f0 + (f90-f0)*pow(1.0-VoH, 5.0);
 }
 
 float3 Specular_F_CT(float3 f0, float VoH)
 {
-	const float3 f0Sqrt = sqrt(f0);
-	const float3 eta = (1.0f+f0Sqrt)/(1.0f-f0Sqrt);
-	const float3 g = sqrt(eta*eta + VoH*VoH - 1.0f);
+    const float3 f0Sqrt = min(0.999, sqrt(f0));
+	const float3 eta = (1.0 + f0Sqrt) / (1.0 - f0Sqrt);
+	const float3 g = sqrt(eta*eta + VoH*VoH - 1.0);
 	const float3 c = VoH;
+    
+    float3 g_minus = g - VoH;
+    float3 g_plus = g + VoH;
+    float3 A = (g_minus / g_plus);
+    float3 B = (g_plus * VoH - 1.0) / (g_minus * VoH + 1.0);
 
-	return 0.5f * pow((g-c)/(g+c), 2) * pow((1 + ((g+c)*c-1) / ((g-c)*c + 1)), 2);
+    return 0.5 * A * A * (1.0 + B * B);
 }
 
 //Disney diffuse function - modified by Frostbite
@@ -218,14 +223,10 @@ float4 main(PixelInputType input) : SV_TARGET
     const float3 diffuseColor = albedo - albedo * metallic;
     const float3 specularColor = lerp(0.04f, albedo, metallic);
 	//F component
-	float F = 0;
-	float ior = 2.5f; //Steel
-	float F0 = abs((1.0f - ior) / (1.0f + ior));
-	F0 = F0 * F0;
-	F = lerp(F0, albedo, metallic);	
+	float3 F = 0;
 	if (g_fresnelType == FRESNEL_NONE){
-		F = F0;
-	} 
+        F = specularColor;
+    } 
 	if (g_fresnelType == FRESNEL_SCHLICK){
         F = Specular_F_Schlick(specularColor, VoH);
     }
@@ -263,7 +264,7 @@ float4 main(PixelInputType input) : SV_TARGET
 		return float4(diff, 1.0f);
 	}
 	if (g_debugType == DEBUG_SPEC){
-        return float4(spec, 1.0f);
+        return float4(spec + prefilteredSpecular, 1.0f);
 		//return float4(prefilteredSpecular, 1.0f);
 	}
 	if (g_debugType == DEBUG_ALBEDO){
@@ -285,7 +286,7 @@ float4 main(PixelInputType input) : SV_TARGET
 		return float4(G1, G2, 0.0f, 1.0f);
 	} 
 	if (g_debugType == DEBUG_FRESNEL){
-		return float4(F, F, F, 1.0f);
+		return float4(F, 1.0f);
 	}
 
 	return float4(1.0f, 0.0f, 1.0f, 1.0f);

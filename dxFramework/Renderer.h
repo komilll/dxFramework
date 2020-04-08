@@ -9,6 +9,7 @@
 #include "ModelDX.h"
 #include "ShaderSSAO.h"
 #include "Profiler.h"
+#include "BaseLight.h"
 
 using namespace DirectX;
 class Renderer 
@@ -67,6 +68,7 @@ private:
 	void DrawSkybox();
 	bool ConvoluteDiffuseSkybox();
 	void ConvoluteSpecularSkybox();
+	void PrecomputeEnvironmentBRDF();
 	bool ConstructCubemap(std::array<std::wstring, 6> textureNames, ID3D11ShaderResourceView** cubemapView);
 	bool ConstructCubemapFromTextures(std::array<RenderTexture*, SPECULAR_CONVOLUTION_MIPS * 6> textureFaces, ID3D11ShaderResourceView** cubemapView);
 	bool CreateSkyboxCubemap();
@@ -83,6 +85,8 @@ private:
 	bool FREEZE_CAMERA = false;
 	bool DO_SCREENSHOT_NEXT_FRAME = false;
 	Profiler* m_profiler;
+
+//SCENE SETTINGS
 
 //Rendering settings
 	NdfType m_ndfType = NdfType::GGX;
@@ -188,6 +192,7 @@ private:
 	RenderTexture* m_ssaoBufferTexture			 = NULL;
 	RenderTexture* m_backBufferRenderTexture	 = NULL;
 	RenderTexture* m_diffuseConvolutionTexture	 = NULL;
+	RenderTexture* m_environmentBRDF			 = NULL;
 	std::array<RenderTexture*, SPECULAR_CONVOLUTION_MIPS * 6> m_specularConvolutionTexture;
 	ModelDX* m_backBufferQuadModel				 = NULL;
 	ModelDX* m_bunnyModel						 = NULL;
@@ -209,6 +214,7 @@ private:
 	ID3D11PixelShader* m_pixelShaderSkybox			= NULL;
 	ID3D11PixelShader* m_pixelShaderDiffuseIBL		= NULL;
 	ID3D11PixelShader* m_pixelShaderSpecularIBL     = NULL;
+	ID3D11PixelShader* m_pixelShaderEnvironmentBRDF = NULL;
 
 	//Postprocess classes
 	ShaderSSAO* m_ssao	= NULL;

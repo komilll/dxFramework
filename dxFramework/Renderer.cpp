@@ -34,6 +34,7 @@ Renderer::Renderer(std::shared_ptr<DeviceManager> deviceManager)
 	m_ssaoBufferTexture = new RenderTexture(1280, 720, m_deviceManager->GetDevice(), DXGI_FORMAT_R32_FLOAT);
 	m_backBufferRenderTexture = new RenderTexture(1280, 720, m_deviceManager->GetDevice());
 	m_diffuseConvolutionTexture = new RenderTexture(256, 256, m_deviceManager->GetDevice());
+	m_environmentBRDF = new RenderTexture(256, 256, m_deviceManager->GetDevice()/*, DXGI_FORMAT_R32G32_FLOAT*/);
 	for (auto& texture : m_specularConvolutionTexture) { texture = new RenderTexture(256, 256, m_deviceManager->GetDevice()); }
 	
 	m_backBufferQuadModel = new ModelDX();
@@ -56,7 +57,8 @@ Renderer::Renderer(std::shared_ptr<DeviceManager> deviceManager)
 	ShaderSwapper::CompileShader("VS_Skybox.hlsl", "PS_Skybox.hlsl", &m_pixelShaderSkybox, &m_vertexShaderSkybox, &m_inputLayout, m_deviceManager->GetDevice());
 	ShaderSwapper::CompileShader("", "PS_PrecomputeIBL.hlsl", &m_pixelShaderDiffuseIBL, NULL, &m_inputLayout, m_deviceManager->GetDevice(), "", "DiffusePrecompute");
 	ShaderSwapper::CompileShader("", "PS_PrecomputeIBL.hlsl", &m_pixelShaderSpecularIBL, NULL, &m_inputLayout, m_deviceManager->GetDevice(), "", "SpecularPrecompute");
-
+	ShaderSwapper::CompileShader("", "PS_PrecomputeIBL.hlsl", &m_pixelShaderEnvironmentBRDF, NULL, &m_inputLayout, m_deviceManager->GetDevice(), "", "PrecomputeEnvironmentLUT");
+	
 	//Prepare SSAO data
 	m_ssao = new ShaderSSAO(m_deviceManager->GetDevice());
 	m_specialBufferSSAOData.kernelSample = m_ssao->GetSampleKernel();
@@ -237,6 +239,7 @@ void Renderer::Render()
 		{
 			ConvoluteDiffuseSkybox();
 			ConvoluteSpecularSkybox();
+			PrecomputeEnvironmentBRDF();
 		}
 
 		if (DO_SCREENSHOT_NEXT_FRAME)
@@ -627,6 +630,21 @@ void Renderer::ConvoluteSpecularSkybox()
 	{
 		ConstructCubemapFromTextures(m_specularConvolutionTexture, &m_specularIBLResourceView);
 	}
+}
+
+void Renderer::PrecomputeEnvironmentBRDF()
+{
+	ID3D11DeviceContext* context = m_deviceManager->GetDeviceContext();
+
+	context->VSSetShader(m_vertexShaderBackBuffer, NULL, 0);
+	context->PSSetShader(m_pixelShaderEnvironmentBRDF, NULL, 0);
+
+	m_indexCount = m_backBufferQuadModel->Render(context);
+	m_environmentBRDF->SetAsActiveTarget(context, NULL, true, false, XMFLOAT4{ 0,0,0,0 });
+	m_environmentBRDF->SetViewportSize(256,256);
+	context->DrawIndexed(m_indexCount, 0, 0);
+
+	SaveTextureToFile(m_environmentBRDF, L"Resources/enviroBRDF.png");
 }
 
 bool Renderer::ConstructCubemap(std::array<std::wstring, 6> textureNames, ID3D11ShaderResourceView ** cubemapView)

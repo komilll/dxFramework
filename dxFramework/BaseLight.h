@@ -19,9 +19,9 @@ public:
 	};
 
 	typedef struct _baseLightStruct {
-		int type;
-		XMFLOAT4 positionOrDirection; //w == 0 for position and w == 1 for direction
-		float intensity;		
+		LightType type;
+		XMFLOAT3 position;
+		XMFLOAT4 color;
 	} BaseLightStruct;
 
 	BaseLight() = default;
