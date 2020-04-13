@@ -9,6 +9,7 @@ SamplerState baseSampler : register(s0);
 TextureCube<float4> skyboxTexture      : register(t4);
 TextureCube<float4> diffuseIBLTexture  : register(t5);
 TextureCube<float4> specularIBLTexture : register(t6);
+Texture2D           enviroBRDF         : register(t7);
 
 const static float PI       = 3.14159265358979323846;
 const static float INV_PI   = 0.31830988618379067154;
@@ -159,20 +160,20 @@ float Specular_G(float roughness, float NoV)
 float2 PrecomputeEnvironmentLUTFin(float NoV, float roughness)
 {
     const float3 V = float3(sqrt(1.0 - NoV * NoV), 0, NoV);
-    const float3 N = float3(0, 0, 1);
+    const float3 N = float3(0, 0, 1.0);
     float A = 0;
     float B = 0;
     
-    const uint sampleCount = 1024*8;
+    const uint sampleCount = 8096;
     for (uint i = 0; i < sampleCount; ++i)
     {
         float2 Xi = HammersleyDistribution(i, sampleCount);
         float3 H = ImportanceSamplingGGX(Xi, N, roughness);
-        float3 L = normalize(2.0 * dot(V, H) * H - V);
+        float3 L = 2.0 * dot(V, H) * H - V;
         
-        const float NoL = max(L.z, 0.0);
-        const float NoH = max(H.z, 0.0);
-        const float VoH = max(dot(V, H), 0.0);
+        const float NoL = saturate(L.z);
+        const float NoH = saturate(H.z);
+        const float VoH = saturate(dot(V, H));
         
         if (NoL > 0)
         {

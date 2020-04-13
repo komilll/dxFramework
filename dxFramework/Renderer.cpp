@@ -14,7 +14,7 @@ Renderer::Renderer(std::shared_ptr<DeviceManager> deviceManager)
 	m_deviceManager = deviceManager;
 	//m_directionalLightBufferData.direction = XMFLOAT3{ 0.0f, 1.0f, 1.75f };
 	m_uberBufferData.directionalLightDirection = XMFLOAT3{ 0.0f, 0.0f, 1.0f };
-	m_uberBufferData.directionalLightColor = XMFLOAT4{ 1,1,1,1 };
+	m_uberBufferData.directionalLightColor = XMFLOAT4{ 1,1,1,0 };
 	m_propertyBufferData.roughness = 0.25f;
 
 	//Presentation of suzanne
@@ -163,6 +163,10 @@ void Renderer::Render()
 		if (m_skyboxResourceView) context->PSSetShaderResources(4, 1, &m_skyboxResourceView);
 		if (m_diffuseIBLResourceView) context->PSSetShaderResources(5, 1, &m_diffuseIBLResourceView);
 		if (m_specularIBLResourceView) context->PSSetShaderResources(6, 1, &m_specularIBLResourceView);
+		if (m_environmentBRDF && m_environmentBRDF->GetResourceView()) {
+			auto tex = m_environmentBRDF->GetResourceView();
+			context->PSSetShaderResources(7, 1, &tex);
+		}
 
 		m_indexCount = m_bunnyModel->Render(context);
 		//context->DrawIndexed(m_indexCount, 0, 0);
@@ -214,8 +218,9 @@ void Renderer::Render()
 					dataPtr->hasRoughness = static_cast<int>(m_roughnessResourceView != NULL);
 					dataPtr->hasMetallic = static_cast<int>(m_metallicResourceView != NULL);
 
-					dataPtr->roughnessValue = max(static_cast<float>(x) * (1.0f / (columnCount - 1)), 0.001f);
+					dataPtr->roughnessValue = max(static_cast<float>(x) * (1.0f / max(1.0f, (columnCount - 1))), 0.001f);
 					dataPtr->metallicValue = static_cast<float>(y) * (1.0f / max(1, (rowCount - 1)));
+					//dataPtr->metallicValue = 1;
 					dataPtr->f0 = min(max(m_specialBufferBRDFData.f0, 0.001f), 0.99999f);
 
 					dataPtr->debugType = static_cast<int>(m_debugType);
@@ -571,6 +576,8 @@ bool Renderer::ConvoluteDiffuseSkybox()
 		context->DrawIndexed(m_indexCount, 0, 0);
 		SaveTextureToFile(m_diffuseConvolutionTexture, filenames[i].c_str());
 	}
+
+	ConstructCubemap(filenames, &m_diffuseIBLResourceView);
 	return true;
 }
 
@@ -644,7 +651,7 @@ void Renderer::PrecomputeEnvironmentBRDF()
 	m_environmentBRDF->SetViewportSize(256,256);
 	context->DrawIndexed(m_indexCount, 0, 0);
 
-	SaveTextureToFile(m_environmentBRDF, L"Resources/enviroBRDF.png");
+	//SaveTextureToFile(m_environmentBRDF, L"Resources/enviroBRDF.png");
 }
 
 bool Renderer::ConstructCubemap(std::array<std::wstring, 6> textureNames, ID3D11ShaderResourceView ** cubemapView)

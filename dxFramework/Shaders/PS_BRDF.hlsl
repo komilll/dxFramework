@@ -165,9 +165,10 @@ float4 main(PixelInputType input) : SV_TARGET
 	const float3 R = 2.0 * NoV * N - V;
 
 	float3 albedo = g_hasAlbedo == 0 ? float3(1.0f, 0.0f, 0.0f) : albedoTexture.Sample(baseSampler, input.uv);
-	albedo = saturate(albedo);
+    albedo = saturate(albedo);
+    albedo = 1;
 	// albedo = albedo / (albedo + float3(1.0, 1.0, 1.0));
-	// albedo = pow(albedo, float3(1.0/2.2, 1.0/2.2, 1.0/2.2)); 
+    //albedo = pow(albedo, float3(1.0 / 2.2, 1.0 / 2.2, 1.0 / 2.2));
 
 	//D component
 	float D = 1.0f;
@@ -243,28 +244,26 @@ float4 main(PixelInputType input) : SV_TARGET
 	const float numeratorBRDF = D * F * G;
 	const float denominatorBRDF = max((4.0f * max(NoV, 0.0f) * max(NoL, 0.0f)), 0.001f);
 	const float BRDF = numeratorBRDF / denominatorBRDF;
-
-	//const float3 spec = saturate(albedo * BRDF) * specularColor * kS;
-    const float3 spec = numeratorBRDF;
+    const float3 spec = numeratorBRDF * NoL * g_directionalLightColor.w;
 
 	const float ambient = 0.05f;
 	// const float3 diff = saturate(NoL) * diffuseColor;
-
-	// const float3 diff = saturate(invPI * Diffuse_Disney(NoV, NoL, LoH, roughness)) * diffuseColor;
-	float3 diff = saturate(Diffuse_Disney(NoV, NoL, LoH, roughness)) * kD;// * diffuseColor;
-	diff = saturate(diff / PI);
+    float2 envBRDF = enviroBRDF.Sample(baseSampler, input.uv).rg;
+    float3 diffuse = prefilteredDiffuse * diffuseColor;
+    float3 specular = prefilteredSpecular * (specularColor * envBRDF.x + envBRDF.y);
 
 	if (g_debugType == DEBUG_NONE){
 		// const float3 specularIBL = SpecularIBL(roughness, N) * specularColor * NoL;// * BRDF * NoL;
 		// return float4(specularIBL, 1.0f);
-		//return float4(prefilteredSpecular, 1.0f);
-		return float4(diff + spec, 1.0f);
-	}
+        //return float4(prefilteredSpecular, 1.0f);
+        //return float4(diffuse + specular, 1.0f);
+        return float4(diffuse + spec + specular, 1.0f);
+    }
 	if (g_debugType == DEBUG_DIFF){
-		return float4(diff, 1.0f);
-	}
+        return float4(prefilteredDiffuse, 1.0f);
+    }
 	if (g_debugType == DEBUG_SPEC){
-        return float4(spec + prefilteredSpecular, 1.0f);
+        return float4(spec + specular, 1.0f);
 		//return float4(prefilteredSpecular, 1.0f);
 	}
 	if (g_debugType == DEBUG_ALBEDO){
