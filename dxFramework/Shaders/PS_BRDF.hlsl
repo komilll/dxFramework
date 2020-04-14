@@ -4,6 +4,23 @@
 #include <PS_PrecomputeIBL.hlsl>
 //#include <LightSettings.hlsl>
 
+SamplerState BrdfLutSampleType : register(s1)
+{
+    Filter = D3D11_FILTER_MIN_MAG_MIP_POINT;
+    AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
+    AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
+    AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
+    MipLODBias = 0.0f;
+    MaxAnisotropy = 1;
+    ComparisonFunc = D3D11_COMPARISON_ALWAYS;
+    BorderColor[0] = 0;
+    BorderColor[1] = 0;
+    BorderColor[2] = 0;
+    BorderColor[3] = 0;
+    MinLOD = 0;
+    MaxLOD = D3D11_FLOAT32_MAX;
+};
+
 Texture2D albedoTexture 	: register(t0);
 Texture2D roughnessTexture  : register(t1);
 Texture2D normalTexture 	: register(t2);
@@ -133,8 +150,8 @@ float4 main(PixelInputType input) : SV_TARGET
 	float roughness = g_hasRoughness == 0 ? g_roughnessValue : roughnessTexture.Sample(baseSampler, input.uv).r;
 	float metallic = g_hasMetallic == 0 ? g_metallicValue : metallicTexture.Sample(baseSampler, input.uv).r;
 
-	roughness = clamp(roughness, 0.0001f, 0.999f);
-	// roughness = pow(roughness, 2.0f);
+	roughness = clamp(roughness, 0.05f, 0.999f);
+	//roughness = pow(roughness, 2.0f);
 
 	input.normal = normalize(input.normal);
 	input.tangent = normalize(input.tangent);
@@ -221,8 +238,8 @@ float4 main(PixelInputType input) : SV_TARGET
 	}
 	G = saturate(G);
 
-    const float3 diffuseColor = albedo - albedo * metallic;
-    const float3 specularColor = lerp(0.04f, albedo, metallic);
+    const float3 diffuseColor = saturate(albedo - albedo * metallic);
+    const float3 specularColor = saturate(lerp(0.04f, albedo, metallic));
 	//F component
 	float3 F = 0;
 	if (g_fresnelType == FRESNEL_NONE){
@@ -238,33 +255,24 @@ float4 main(PixelInputType input) : SV_TARGET
 	
 	const float3 prefilteredDiffuse = diffuseIBLTexture.Sample(baseSampler, N).rgb;
 	const float3 prefilteredSpecular = specularIBLTexture.SampleLevel(baseSampler, R, roughness * 5.0);
-	const float kS = F;
-	const float kD = (1.0f - kS) * (1.0f - metallic);
 
 	const float numeratorBRDF = D * F * G;
-	const float denominatorBRDF = max((4.0f * max(NoV, 0.0f) * max(NoL, 0.0f)), 0.001f);
-	const float BRDF = numeratorBRDF / denominatorBRDF;
-    const float3 spec = numeratorBRDF * NoL * g_directionalLightColor.w;
+	//const float denominatorBRDF = max((4.0f * max(NoV, 0.0f) * max(NoL, 0.0f)), 0.001f);
+	//const float BRDF = numeratorBRDF / denominatorBRDF;
+    const float3 sunLight = numeratorBRDF * NoL * g_directionalLightColor.w;
 
-	const float ambient = 0.05f;
-	// const float3 diff = saturate(NoL) * diffuseColor;
-    float2 envBRDF = enviroBRDF.Sample(baseSampler, input.uv).rg;
+    float2 envBRDF = enviroBRDF.Sample(BrdfLutSampleType, float2(NoV, roughness)).rg;
     float3 diffuse = prefilteredDiffuse * diffuseColor;
     float3 specular = prefilteredSpecular * (specularColor * envBRDF.x + envBRDF.y);
-
+    
 	if (g_debugType == DEBUG_NONE){
-		// const float3 specularIBL = SpecularIBL(roughness, N) * specularColor * NoL;// * BRDF * NoL;
-		// return float4(specularIBL, 1.0f);
-        //return float4(prefilteredSpecular, 1.0f);
-        //return float4(diffuse + specular, 1.0f);
-        return float4(diffuse + spec + specular, 1.0f);
+        return float4(diffuse + sunLight + specular, 1.0f);
     }
 	if (g_debugType == DEBUG_DIFF){
-        return float4(prefilteredDiffuse, 1.0f);
+        return float4(diffuse, 1.0f);
     }
 	if (g_debugType == DEBUG_SPEC){
-        return float4(spec + specular, 1.0f);
-		//return float4(prefilteredSpecular, 1.0f);
+        return float4(sunLight + specular, 1.0f);
 	}
 	if (g_debugType == DEBUG_ALBEDO){
 		return float4(albedo, 1.0f);

@@ -34,7 +34,7 @@ Renderer::Renderer(std::shared_ptr<DeviceManager> deviceManager)
 	m_ssaoBufferTexture = new RenderTexture(1280, 720, m_deviceManager->GetDevice(), DXGI_FORMAT_R32_FLOAT);
 	m_backBufferRenderTexture = new RenderTexture(1280, 720, m_deviceManager->GetDevice());
 	m_diffuseConvolutionTexture = new RenderTexture(256, 256, m_deviceManager->GetDevice());
-	m_environmentBRDF = new RenderTexture(256, 256, m_deviceManager->GetDevice()/*, DXGI_FORMAT_R32G32_FLOAT*/);
+	m_environmentBRDF = new RenderTexture(256, 256, m_deviceManager->GetDevice(), DXGI_FORMAT_R32G32_FLOAT);
 	for (auto& texture : m_specularConvolutionTexture) { texture = new RenderTexture(256, 256, m_deviceManager->GetDevice()); }
 	
 	m_backBufferQuadModel = new ModelDX();
@@ -238,13 +238,15 @@ void Renderer::Render()
 
 		DrawSkybox();
 		//RenderToBackBuffer(m_renderTexture);
-		static int counterToStartAction = 10;
+		static int counterToStartAction = 1;
 		counterToStartAction--;
 		if (counterToStartAction == 0)
 		{
 			ConvoluteDiffuseSkybox();
 			ConvoluteSpecularSkybox();
 			PrecomputeEnvironmentBRDF();
+
+			m_deviceManager->SetBackBufferRenderTarget();
 		}
 
 		if (DO_SCREENSHOT_NEXT_FRAME)

@@ -1,6 +1,2 @@
-﻿  GuiManager.cpp
-  Main.cpp
-  Renderer.cpp
-  dxFramework.cpp
-  Generating Code...
+﻿  Renderer.cpp
   dxFramework.vcxproj -> C:\Users\Kamil\Documents\_Projects\dxFramework\x64\Debug\dxFramework.exe
