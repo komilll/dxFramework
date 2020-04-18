@@ -9,19 +9,19 @@ using namespace DirectX;
 class BaseLight
 {
 public:
-	enum class LightType
+	enum class LightType : int
 	{
-		None		= 0,
-		Point		= 1,
-		Directional = 2,
-		Area		= 4,
-		Environment	= 8
+		Point		= 0,
+		Directional = 1,
+		Area		= 2,
 	};
 
 	typedef struct _baseLightStruct {
-		LightType type;
 		XMFLOAT3 position;
-		XMFLOAT4 color;
+		float radius;
+		XMFLOAT3 color;
+
+		int type; /*LightType*/ 
 	} BaseLightStruct;
 
 	BaseLight() = default;

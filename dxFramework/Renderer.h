@@ -61,9 +61,13 @@ public:
 private:
 	HRESULT CreateConstantBuffers();
 	bool CreateShaders(std::string pixelShaderName, std::string vertexShaderName = "VS_Base.hlsl");
+	void PrepareAreaLightStructures();
+
 	void CreateViewAndPerspective();
 	void MapResourceData();
 	void SetConstantBuffers();
+	void MapConstantBuffer();
+	void UpdateAreaLights(std::vector<BaseLight::BaseLightStruct> data, int lightCount);
 
 	void DrawSkybox();
 	bool ConvoluteDiffuseSkybox();
@@ -196,7 +200,9 @@ private:
 	std::array<RenderTexture*, SPECULAR_CONVOLUTION_MIPS * 6> m_specularConvolutionTexture;
 	ModelDX* m_backBufferQuadModel				 = NULL;
 	ModelDX* m_bunnyModel						 = NULL;
+	ModelDX* m_sphereModel						 = NULL;
 	ModelDX* m_skyboxModel						 = NULL;
+	ModelDX* m_groundPlaneModel					 = NULL;
 
 	//Shader buffers
 	ID3D11VertexShader* m_baseVertexShader			= NULL;
@@ -215,6 +221,13 @@ private:
 	ID3D11PixelShader* m_pixelShaderDiffuseIBL		= NULL;
 	ID3D11PixelShader* m_pixelShaderSpecularIBL     = NULL;
 	ID3D11PixelShader* m_pixelShaderEnvironmentBRDF = NULL;
+	ID3D11PixelShader* m_pixelShaderUnlit			= NULL;
+
+	//Area light variables
+	ID3D11Buffer* m_areaLightBuffer			 = NULL;
+	ID3D11ShaderResourceView* m_areaLightSRV = NULL;
+	int m_areaLightCount = 1;
+	std::vector<BaseLight::BaseLightStruct> m_areaLights;
 
 	//Postprocess classes
 	ShaderSSAO* m_ssao	= NULL;

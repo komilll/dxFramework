@@ -1,5 +1,6 @@
 cbuffer UberBuffer : register(b7)
 {
+    float4 g_unlitColor;
     float4 g_directionalLightColor;
     float3 g_directionalLightDirection;
     float g_uberPad1;

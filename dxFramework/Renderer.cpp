@@ -12,6 +12,8 @@ Renderer::Renderer(std::shared_ptr<DeviceManager> deviceManager)
 {
 	m_frameCount = 0;
 	m_deviceManager = deviceManager;
+	ID3D11Device* device = m_deviceManager->GetDevice();
+
 	//m_directionalLightBufferData.direction = XMFLOAT3{ 0.0f, 1.0f, 1.75f };
 	m_uberBufferData.directionalLightDirection = XMFLOAT3{ 0.0f, 0.0f, 1.0f };
 	m_uberBufferData.directionalLightColor = XMFLOAT4{ 1,1,1,0 };
@@ -27,40 +29,50 @@ Renderer::Renderer(std::shared_ptr<DeviceManager> deviceManager)
 
 	m_deviceManager->ConfigureSamplerState(&m_baseSamplerState);// , D3D11_TEXTURE_ADDRESS_WRAP, D3D11_FILTER_MIN_MAG_LINEAR_MIP_POINT);
 
-	m_renderTexture = new RenderTexture(1280, 720, m_deviceManager->GetDevice());
-	m_positionBufferTexture = new RenderTexture(1280, 720, m_deviceManager->GetDevice());
-	m_normalBufferTexture = new RenderTexture(1280, 720, m_deviceManager->GetDevice());
-	m_depthBufferTexture = new RenderTexture(1280, 720, m_deviceManager->GetDevice(), DXGI_FORMAT_R16_FLOAT);
-	m_ssaoBufferTexture = new RenderTexture(1280, 720, m_deviceManager->GetDevice(), DXGI_FORMAT_R32_FLOAT);
-	m_backBufferRenderTexture = new RenderTexture(1280, 720, m_deviceManager->GetDevice());
-	m_diffuseConvolutionTexture = new RenderTexture(256, 256, m_deviceManager->GetDevice());
-	m_environmentBRDF = new RenderTexture(256, 256, m_deviceManager->GetDevice(), DXGI_FORMAT_R32G32_FLOAT);
-	for (auto& texture : m_specularConvolutionTexture) { texture = new RenderTexture(256, 256, m_deviceManager->GetDevice()); }
+	m_renderTexture = new RenderTexture(1280, 720, device);
+	m_positionBufferTexture = new RenderTexture(1280, 720, device);
+	m_normalBufferTexture = new RenderTexture(1280, 720, device);
+	m_depthBufferTexture = new RenderTexture(1280, 720, device, DXGI_FORMAT_R16_FLOAT);
+	m_ssaoBufferTexture = new RenderTexture(1280, 720, device, DXGI_FORMAT_R32_FLOAT);
+	m_backBufferRenderTexture = new RenderTexture(1280, 720, device);
+	m_diffuseConvolutionTexture = new RenderTexture(256, 256, device);
+	m_environmentBRDF = new RenderTexture(256, 256, device, DXGI_FORMAT_R32G32_FLOAT);
+	for (auto& texture : m_specularConvolutionTexture) { texture = new RenderTexture(256, 256, device); }
 	
 	m_backBufferQuadModel = new ModelDX();
-	m_backBufferQuadModel->SetFullScreenRectangleModel(m_deviceManager->GetDevice());
+	m_backBufferQuadModel->SetFullScreenRectangleModel(device);
 
 	m_bunnyModel = new ModelDX();
-	m_bunnyModel->LoadModel("sphere.obj", m_deviceManager->GetDevice());
-	m_bunnyModel->m_scale = 0.08f;
+	m_bunnyModel->LoadModel("bunny.obj", device);
+	m_bunnyModel->m_scale = 3.5f;
 
-	m_profiler = new Profiler(m_deviceManager->GetDevice(), m_deviceManager->GetDeviceContext());
+	m_sphereModel = new ModelDX();
+	m_sphereModel->LoadModel("sphere.obj", device);
+	m_sphereModel->m_scale = 0.08f;
 
-	ShaderSwapper::CompileShader("VS_Base.hlsl", "PS_BRDF.hlsl", &m_pixelShaderBunny, &m_baseVertexShader, &m_inputLayout, m_deviceManager->GetDevice());
-	ShaderSwapper::CompileShader("VS_BackBuffer.hlsl", "PS_BackBuffer.hlsl", &m_pixelShaderBackBuffer, &m_vertexShaderBackBuffer, &m_inputLayout, m_deviceManager->GetDevice());
-	ShaderSwapper::CompileShader("VS_ViewSpacePosition.hlsl", "", NULL, &m_vertexShaderViewPosition, &m_inputLayout, m_deviceManager->GetDevice());
-	ShaderSwapper::CompileShader("", "PS_SSAO.hlsl", &m_pixelShaderSSAO, NULL, &m_inputLayout, m_deviceManager->GetDevice());
-	ShaderSwapper::CompileShader("", "PS_SSAOBlur.hlsl", &m_pixelShaderBlurSSAO, NULL, &m_inputLayout, m_deviceManager->GetDevice());
-	ShaderSwapper::CompileShader("", "PS_PositionBuffer.hlsl", &m_pixelShaderPositionBuffer, NULL, &m_inputLayout, m_deviceManager->GetDevice());
-	ShaderSwapper::CompileShader("", "PS_NormalBuffer.hlsl", &m_pixelShaderNormalBuffer, NULL, &m_inputLayout, m_deviceManager->GetDevice());
-	ShaderSwapper::CompileShader("", "PS_DepthBuffer.hlsl", &m_pixelShaderDepthBuffer, NULL, &m_inputLayout, m_deviceManager->GetDevice());
-	ShaderSwapper::CompileShader("VS_Skybox.hlsl", "PS_Skybox.hlsl", &m_pixelShaderSkybox, &m_vertexShaderSkybox, &m_inputLayout, m_deviceManager->GetDevice());
-	ShaderSwapper::CompileShader("", "PS_PrecomputeIBL.hlsl", &m_pixelShaderDiffuseIBL, NULL, &m_inputLayout, m_deviceManager->GetDevice(), "", "DiffusePrecompute");
-	ShaderSwapper::CompileShader("", "PS_PrecomputeIBL.hlsl", &m_pixelShaderSpecularIBL, NULL, &m_inputLayout, m_deviceManager->GetDevice(), "", "SpecularPrecompute");
-	ShaderSwapper::CompileShader("", "PS_PrecomputeIBL.hlsl", &m_pixelShaderEnvironmentBRDF, NULL, &m_inputLayout, m_deviceManager->GetDevice(), "", "PrecomputeEnvironmentLUT");
+	m_groundPlaneModel = new ModelDX();
+	m_groundPlaneModel->CreatePlane(device, { 100, 100 });
+	m_groundPlaneModel->m_rotation = XMFLOAT3{ 89.9f * 0.0174532925f, 0, 0 };
+	m_groundPlaneModel->m_position = XMFLOAT3{ 15.0f, 22.0f, -50.0f };
+
+	m_profiler = new Profiler(device, m_deviceManager->GetDeviceContext());
+
+	ShaderSwapper::CompileShader("VS_Base.hlsl", "PS_BRDF.hlsl", &m_pixelShaderBunny, &m_baseVertexShader, &m_inputLayout, device);
+	ShaderSwapper::CompileShader("VS_BackBuffer.hlsl", "PS_BackBuffer.hlsl", &m_pixelShaderBackBuffer, &m_vertexShaderBackBuffer, &m_inputLayout, device);
+	ShaderSwapper::CompileShader("VS_ViewSpacePosition.hlsl", "", NULL, &m_vertexShaderViewPosition, &m_inputLayout, device);
+	ShaderSwapper::CompileShader("", "PS_SSAO.hlsl", &m_pixelShaderSSAO, NULL, &m_inputLayout, device);
+	ShaderSwapper::CompileShader("", "PS_SSAOBlur.hlsl", &m_pixelShaderBlurSSAO, NULL, &m_inputLayout, device);
+	ShaderSwapper::CompileShader("", "PS_PositionBuffer.hlsl", &m_pixelShaderPositionBuffer, NULL, &m_inputLayout, device);
+	ShaderSwapper::CompileShader("", "PS_NormalBuffer.hlsl", &m_pixelShaderNormalBuffer, NULL, &m_inputLayout, device);
+	ShaderSwapper::CompileShader("", "PS_DepthBuffer.hlsl", &m_pixelShaderDepthBuffer, NULL, &m_inputLayout, device);
+	ShaderSwapper::CompileShader("VS_Skybox.hlsl", "PS_Skybox.hlsl", &m_pixelShaderSkybox, &m_vertexShaderSkybox, &m_inputLayout, device);
+	ShaderSwapper::CompileShader("", "PS_PrecomputeIBL.hlsl", &m_pixelShaderDiffuseIBL, NULL, &m_inputLayout, device, "", "DiffusePrecompute");
+	ShaderSwapper::CompileShader("", "PS_PrecomputeIBL.hlsl", &m_pixelShaderSpecularIBL, NULL, &m_inputLayout, device, "", "SpecularPrecompute");
+	ShaderSwapper::CompileShader("", "PS_PrecomputeIBL.hlsl", &m_pixelShaderEnvironmentBRDF, NULL, &m_inputLayout, device, "", "PrecomputeEnvironmentLUT");
+	ShaderSwapper::CompileShader("", "PS_Unlit.hlsl", &m_pixelShaderUnlit, NULL, &m_inputLayout, device);
 	
 	//Prepare SSAO data
-	m_ssao = new ShaderSSAO(m_deviceManager->GetDevice());
+	m_ssao = new ShaderSSAO(device);
 	m_specialBufferSSAOData.kernelSample = m_ssao->GetSampleKernel();
 	m_specialBufferSSAOData.sampleCount = 16;
 	m_specialBufferSSAOData.kernelRadius = 5.0f;
@@ -75,13 +87,21 @@ Renderer::Renderer(std::shared_ptr<DeviceManager> deviceManager)
 	m_specialBufferBRDFData.debugType = static_cast<int>(m_debugType);
 
 	m_skyboxModel = new ModelDX();
-	m_skyboxModel->LoadModel("cube.obj", m_deviceManager->GetDevice());
+	m_skyboxModel->LoadModel("cube.obj", device);
 	CreateSkyboxCubemap();
 }
 
 void Renderer::CreateDeviceDependentResources()
 {
 	CreateConstantBuffers();
+	PrepareAreaLightStructures();
+
+	BaseLight::BaseLightStruct areaLights;
+	areaLights.color = XMFLOAT3{ 1,1,1 };
+	areaLights.radius = 3.0f;
+	areaLights.position = XMFLOAT3{ 10.0f, 25.0f, -20.0f };
+	areaLights.type = static_cast<int>(BaseLight::LightType::Area);
+	UpdateAreaLights({ areaLights }, 1);
 }
 
 void Renderer::CreateWindowSizeDependentResources()
@@ -101,7 +121,7 @@ void Renderer::Render()
 	ID3D11RenderTargetView* renderTarget = m_deviceManager->GetRenderTarget();
 	ID3D11DepthStencilView* depthStencil = m_deviceManager->GetDepthStencil();
 
-	if (m_baseVertexShader && m_pixelShaderBunny)
+	if (m_baseVertexShader && m_pixelShaderBunny && m_pixelShaderUnlit)
 	{		
 		m_deviceManager->SetBackBufferRenderTarget();
 		//Input layout is the same for all vertex shaders for now
@@ -111,7 +131,7 @@ void Renderer::Render()
 
 		//Create world matrix
 		m_constantBufferData.world = XMMatrixIdentity();
-		m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixScaling(m_bunnyModel->m_scale, m_bunnyModel->m_scale, m_bunnyModel->m_scale));
+		m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixScaling(m_sphereModel->m_scale, m_sphereModel->m_scale, m_sphereModel->m_scale));
 		m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixTranslation(0.0f, 0.0f, 0.0f));
 		m_constantBufferData.world = XMMatrixTranspose(m_constantBufferData.world);
 
@@ -123,12 +143,6 @@ void Renderer::Render()
 		//RenderSSAO();
 		//RenderToBackBuffer(m_normalBufferTexture);
 		//return;
-
-		context->VSSetShader(m_baseVertexShader, NULL, 0);
-		context->PSSetShader(m_pixelShaderBunny, NULL, 0);
-
-		MapResourceData();
-		SetConstantBuffers();
 
 		//if (m_specialBufferBRDF)
 		//{
@@ -157,6 +171,13 @@ void Renderer::Render()
 
 		//	if (m_specialBufferBRDF) context->PSSetConstantBuffers(13, 1, &m_specialBufferBRDF);
 		//}
+
+		//context->VSSetShader(m_baseVertexShader, NULL, 0);
+		//context->PSSetShader(m_pixelShaderBunny, NULL, 0);
+
+		context->VSSetShader(m_baseVertexShader, NULL, 0);
+		context->PSSetShader(m_pixelShaderUnlit, NULL, 0);
+
 		if (m_roughnessResourceView) context->PSSetShaderResources(1, 1, &m_roughnessResourceView);
 		if (m_normalResourceView) context->PSSetShaderResources(2, 1, &m_normalResourceView);
 		if (m_metallicResourceView) context->PSSetShaderResources(3, 1, &m_metallicResourceView);
@@ -167,10 +188,43 @@ void Renderer::Render()
 			auto tex = m_environmentBRDF->GetResourceView();
 			context->PSSetShaderResources(7, 1, &tex);
 		}
+		if (m_areaLightSRV) context->PSSetShaderResources(13, 1, &m_areaLightSRV);
 
-		m_indexCount = m_bunnyModel->Render(context);
-		//context->DrawIndexed(m_indexCount, 0, 0);
-		//return;
+		//for (const auto& light : m_areaLights)
+		//{
+		//	m_uberBufferData.unlitColor = XMFLOAT4{ light.color.x, light.color.y, light.color.z, 1.0f };
+			//MapResourceData();
+			//SetConstantBuffers();
+		//	const float scale = m_sphereModel->m_scale * light.radius;
+
+		//	m_constantBufferData.world = XMMatrixIdentity();
+		//	m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixScaling(scale, scale, scale));
+		//	m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixTranslation(light.position.x, light.position.y, light.position.z));
+		//	m_constantBufferData.world = XMMatrixTranspose(m_constantBufferData.world);
+		//	MapConstantBuffer();
+
+		//	m_indexCount = m_sphereModel->Render(context);
+		//	context->DrawIndexed(m_indexCount, 0, 0);
+		//}
+
+		m_constantBufferData.world = XMMatrixIdentity();
+		m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixScaling(1, 1, 1));
+		m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixRotationRollPitchYaw(m_groundPlaneModel->m_rotation.x, m_groundPlaneModel->m_rotation.y, m_groundPlaneModel->m_rotation.z));
+		m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixTranslation(m_groundPlaneModel->m_position.x, m_groundPlaneModel->m_position.y, m_groundPlaneModel->m_position.z));
+		m_constantBufferData.world = XMMatrixTranspose(m_constantBufferData.world);
+
+		MapConstantBuffer();
+
+		m_uberBufferData.unlitColor = XMFLOAT4{ 0, 0, 0, 1.0f };
+		MapResourceData();
+		SetConstantBuffers();
+
+		m_indexCount = m_groundPlaneModel->Render(context);
+		context->DrawIndexed(m_indexCount, 0, 0);
+
+		return;
+		context->VSSetShader(m_baseVertexShader, NULL, 0);
+		context->PSSetShader(m_pixelShaderUnlit, NULL, 0);
 
 		m_profiler->StartProfiling("Main render loop");
 		constexpr int columnCount = 5;
@@ -180,25 +234,10 @@ void Renderer::Render()
 			for (int y = 0; y < rowCount; ++y)
 			{
 				m_constantBufferData.world = XMMatrixIdentity();
-				m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixScaling(m_bunnyModel->m_scale, m_bunnyModel->m_scale, m_bunnyModel->m_scale));
+				m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixScaling(m_sphereModel->m_scale, m_sphereModel->m_scale, m_sphereModel->m_scale));
 				m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixTranslation(x * 10.0f, y * 10.0f, 0.0f));
 				m_constantBufferData.world = XMMatrixTranspose(m_constantBufferData.world);
-				// Lock the constant buffer so it can be written to.
-				if (m_constantBuffer)
-				{
-					D3D11_MAPPED_SUBRESOURCE mappedResource;
-					const HRESULT result = context->Map(m_constantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
-					if (FAILED(result))
-						return;
-
-					// Get a pointer to the data in the constant buffer.
-					ConstantBufferStruct* dataPtr = static_cast<ConstantBufferStruct*>(mappedResource.pData);
-
-					dataPtr->world = m_constantBufferData.world;
-					dataPtr->view = m_constantBufferData.view;
-					dataPtr->projection = m_constantBufferData.projection;
-					context->Unmap(m_constantBuffer, 0);
-				}
+				MapConstantBuffer();
 
 				if (m_specialBufferBRDF)
 				{
@@ -313,18 +352,21 @@ void Renderer::AddCameraRotation(XMFLOAT3 addRot)
 
 HRESULT Renderer::CreateConstantBuffers()
 {
+	HRESULT result = S_OK;
 	ID3D11Device* device = m_deviceManager->GetDevice();
 
 	//Create matrix buffer
 	D3D11_BUFFER_DESC constantBufferDesc;
 	constantBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
-	constantBufferDesc.ByteWidth = sizeof(ConstantBufferStruct);
+	constantBufferDesc.ByteWidth = 0;
 	constantBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
 	constantBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 	constantBufferDesc.MiscFlags = 0;
 	constantBufferDesc.StructureByteStride = 0;
 
-	HRESULT result = device->CreateBuffer(&constantBufferDesc, nullptr, &m_constantBuffer);
+	//Continue creating constant buffers
+	constantBufferDesc.ByteWidth = sizeof(ConstantBufferStruct);
+	result = device->CreateBuffer(&constantBufferDesc, nullptr, &m_constantBuffer);
 	if (FAILED(result))
 	{
 		return result;
@@ -372,6 +414,31 @@ bool Renderer::CreateShaders(std::string pixelShaderName, std::string vertexShad
 {
 	return true;
 	//return ShaderSwapper::CompileAndSwapPixelShader(vertexShaderName, pixelShaderName, &m_pixelShader, &m_vertexShader, &m_inputLayout, m_deviceManager->GetDevice());
+}
+
+void Renderer::PrepareAreaLightStructures()
+{
+	auto device = m_deviceManager->GetDevice();
+
+	//Create structured buffer for area lights
+	D3D11_BUFFER_DESC areaLightBufferDesc;
+	areaLightBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
+	areaLightBufferDesc.ByteWidth = sizeof(BaseLight::BaseLightStruct) * m_areaLightCount;
+	areaLightBufferDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+	areaLightBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+	areaLightBufferDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+	areaLightBufferDesc.StructureByteStride = sizeof(BaseLight::BaseLightStruct);
+
+	assert(SUCCEEDED(device->CreateBuffer(&areaLightBufferDesc, nullptr, &m_areaLightBuffer)));
+
+	//Prepare area light SRV
+	D3D11_SHADER_RESOURCE_VIEW_DESC srvAreaLightDesc;
+	srvAreaLightDesc.Format = DXGI_FORMAT_UNKNOWN;
+	srvAreaLightDesc.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
+	srvAreaLightDesc.Buffer.ElementOffset = 0;
+	srvAreaLightDesc.Buffer.ElementWidth = m_areaLightCount;
+
+	assert(SUCCEEDED(device->CreateShaderResourceView(m_areaLightBuffer, &srvAreaLightDesc, &m_areaLightSRV)));
 }
 
 void Renderer::CreateViewAndPerspective()
@@ -429,21 +496,7 @@ void Renderer::MapResourceData()
 	ID3D11DeviceContext* context = m_deviceManager->GetDeviceContext();
 
 	D3D11_MAPPED_SUBRESOURCE mappedResource;
-	// Lock the constant buffer so it can be written to.
-	if (m_constantBuffer)
-	{
-		const HRESULT result = context->Map(m_constantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
-		if (FAILED(result))
-			return;
-
-		// Get a pointer to the data in the constant buffer.
-		ConstantBufferStruct* dataPtr = static_cast<ConstantBufferStruct*>(mappedResource.pData);
-
-		dataPtr->world = m_constantBufferData.world;
-		dataPtr->view = m_constantBufferData.view;
-		dataPtr->projection = m_constantBufferData.projection;
-		context->Unmap(m_constantBuffer, 0);
-	}
+	MapConstantBuffer();
 
 	//MAP ADDITIONAL DATA
 	if (m_uberBuffer)
@@ -454,6 +507,7 @@ void Renderer::MapResourceData()
 
 		UberBufferStruct* dataPtr = static_cast<UberBufferStruct*>(mappedResource.pData);
 
+		dataPtr->unlitColor = m_uberBufferData.unlitColor;
 		dataPtr->viewerPosition = m_uberBufferData.viewerPosition;
 		dataPtr->directionalLightDirection = m_uberBufferData.directionalLightDirection;
 		dataPtr->directionalLightColor = m_uberBufferData.directionalLightColor;
@@ -486,6 +540,40 @@ void Renderer::SetConstantBuffers()
 
 	if (m_baseSamplerState) context->PSSetSamplers(0, 1, &m_baseSamplerState);
 	if (m_baseResourceView) context->PSSetShaderResources(0, 1, &m_baseResourceView);
+}
+
+void Renderer::MapConstantBuffer()
+{
+	if (m_constantBuffer)
+	{
+		ID3D11DeviceContext* context = m_deviceManager->GetDeviceContext();
+		D3D11_MAPPED_SUBRESOURCE mappedResource;
+		assert(SUCCEEDED(context->Map(m_constantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource)));
+
+		ConstantBufferStruct* dataPtr = static_cast<ConstantBufferStruct*>(mappedResource.pData);
+
+		dataPtr->world = m_constantBufferData.world;
+		dataPtr->view = m_constantBufferData.view;
+		dataPtr->projection = m_constantBufferData.projection;
+		context->Unmap(m_constantBuffer, 0);
+	}
+}
+
+void Renderer::UpdateAreaLights(std::vector<BaseLight::BaseLightStruct> data, int lightCount)
+{
+	if (lightCount != m_areaLightCount)
+	{
+		//System is not prepared to change area light count
+		assert(false);
+	}
+	m_areaLights = data;
+
+	D3D11_MAPPED_SUBRESOURCE mappedResource;
+	ID3D11DeviceContext* context = m_deviceManager->GetDeviceContext();
+
+	assert(SUCCEEDED(context->Map(m_areaLightBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource)));
+	memcpy(mappedResource.pData, &data, sizeof(BaseLight::BaseLightStruct) * m_areaLightCount);
+	context->Unmap(m_areaLightBuffer, 0);
 }
 
 void Renderer::DrawSkybox()
@@ -545,16 +633,7 @@ bool Renderer::ConvoluteDiffuseSkybox()
 
 		if (m_constantBuffer)
 		{
-			D3D11_MAPPED_SUBRESOURCE mappedResource;
-			const HRESULT result = context->Map(m_constantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
-			assert(SUCCEEDED(result));
-			ConstantBufferStruct* dataPtr = static_cast<ConstantBufferStruct*>(mappedResource.pData);
-
-			dataPtr->world = m_constantBufferData.world;
-			dataPtr->view = m_constantBufferData.view;
-			dataPtr->projection = m_constantBufferData.projection;
-			context->Unmap(m_constantBuffer, 0);
-
+			MapConstantBuffer();
 			context->VSSetConstantBuffers(0, 1, &m_constantBuffer);
 		}
 
@@ -601,16 +680,7 @@ void Renderer::ConvoluteSpecularSkybox()
 			m_specularConvolutionTexture.at(roughnessIndex + i * SPECULAR_CONVOLUTION_MIPS)->SetAsActiveTarget(context, NULL, true, false, XMFLOAT4{ 0,0,0,0 });
 			if (m_constantBuffer)
 			{
-				D3D11_MAPPED_SUBRESOURCE mappedResource;
-				const HRESULT result = context->Map(m_constantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
-				assert(SUCCEEDED(result));
-				ConstantBufferStruct* dataPtr = static_cast<ConstantBufferStruct*>(mappedResource.pData);
-
-				dataPtr->world = m_constantBufferData.world;
-				dataPtr->view = m_constantBufferData.view;
-				dataPtr->projection = m_constantBufferData.projection;
-				context->Unmap(m_constantBuffer, 0);
-
+				MapConstantBuffer();
 				context->VSSetConstantBuffers(0, 1, &m_constantBuffer);
 			}
 			if (m_specialBufferPrecomputeIBL)
@@ -840,7 +910,7 @@ void Renderer::RenderGBuffer(Renderer::GBufferType type)
 
 	MapResourceData();
 	SetConstantBuffers();
-	m_indexCount = m_bunnyModel->Render(context);
+	m_indexCount = m_sphereModel->Render(context);
 	context->DrawIndexed(m_indexCount, 0, 0);
 }
 
@@ -858,18 +928,7 @@ void Renderer::RenderSSAO()
 	D3D11_MAPPED_SUBRESOURCE mappedResource;
 	if (m_constantBuffer)
 	{
-		const HRESULT result = context->Map(m_constantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
-		if (FAILED(result))
-			return;
-
-		// Get a pointer to the data in the constant buffer.
-		ConstantBufferStruct* dataPtr = static_cast<ConstantBufferStruct*>(mappedResource.pData);
-
-		dataPtr->world = m_constantBufferData.world;
-		dataPtr->view = m_constantBufferData.view;
-		dataPtr->projection = m_constantBufferData.projection;
-		context->Unmap(m_constantBuffer, 0);
-
+		MapConstantBuffer();
 		context->VSSetConstantBuffers(0, 1, &m_constantBuffer);
 	}
 

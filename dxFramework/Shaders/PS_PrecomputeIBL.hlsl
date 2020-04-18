@@ -4,17 +4,15 @@
 #include <PS_Input.hlsl> //PixelInputType
 #include <ALL_UberBuffer.hlsl> //UberBuffer
 #include <HammerslaySequence.hlsl>
+#include <PS_BRDF_Helper.hlsl>
+#include <LightSettings.hlsl>
 
 SamplerState baseSampler : register(s0);
 TextureCube<float4> skyboxTexture      : register(t4);
 TextureCube<float4> diffuseIBLTexture  : register(t5);
 TextureCube<float4> specularIBLTexture : register(t6);
 Texture2D           enviroBRDF         : register(t7);
-
-const static float PI       = 3.14159265358979323846;
-const static float INV_PI   = 0.31830988618379067154;
-const static float INV_2PI  = 0.15915494309189533577;
-const static float INV_4PI  = 0.07957747154594766788;
+StructuredBuffer<Light> lightSettings  : register(t13);
 
 cbuffer PrecomputeIBLBuffer : register(b13)
 {
@@ -82,6 +80,40 @@ float3 ImportanceSamplingGGX(float2 Xi, float3 N, float roughness)
     float3 bitangent = cross(N, tangent);
 	
     return normalize(tangent * H.x + bitangent * H.y + N * H.z);
+}
+
+float4 MonteCarloSpecular(float3 diffuseColor, float3 specularColor, float3 N, float3 V, float roughness, const uint sampleCount)
+{
+    float3 specularLighting = 0;
+    
+    uint lightCount;
+    uint stride;
+    lightSettings.GetDimensions(lightCount, stride);
+
+    for (uint i = 0; i < sampleCount; ++i)
+    {
+        float2 Xi = HammersleyDistribution(i, sampleCount);
+        float3 H = ImportanceSamplingGGX(Xi, N, roughness);
+        float3 L = 2 * dot(V, H) * H - V;
+        
+        if (dot(N, L) < 0)
+            L = -L;
+        
+        const float NoV = saturate(dot(N, V));
+        const float NoH = saturate(dot(N, H));
+        const float VoH = saturate(dot(V, H));
+        const float LoH = saturate(dot(L, H));
+        const float NoL = saturate(dot(N, L));
+        
+        const float3 diffuse = Diffuse_Disney(NoV, NoL, LoH, roughness) * diffuseColor;
+        const float D = Specular_D_GGX(roughness, NoH);
+        const float G = Specular_G_GGX(roughness, NoV) * Specular_G_GGX(roughness, NoL);
+        const float3 F = Specular_F_Schlick(specularColor, VoH);
+        const float3 specular = F * (D * G);
+        
+        specularLighting += (diffuse + specular) / INV_2PI;
+    }
+    return float4(specularLighting / sampleCount, 1.0f);
 }
 
 float4 SpecularPrecomputeIBL(float3 R)

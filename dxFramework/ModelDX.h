@@ -35,6 +35,7 @@ public:
 		}
 	};
 
+	void CreatePlane(ID3D11Device* device, XMFLOAT2 size);
 	void SetFullScreenRectangleModel(ID3D11Device* device);
 	void LoadModel(std::string path, ID3D11Device* device);
 	Mesh GetMesh(int index) const { return m_meshes.at(index); };

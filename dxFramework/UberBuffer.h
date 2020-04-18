@@ -6,6 +6,7 @@
 using namespace DirectX;
 
 typedef struct _uberBufferStruct {
+	XMFLOAT4 unlitColor;
 	XMFLOAT4 directionalLightColor;
 	XMFLOAT3 directionalLightDirection;
 	float pad1 = 0;

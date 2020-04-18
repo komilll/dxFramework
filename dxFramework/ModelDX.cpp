@@ -4,6 +4,12 @@
 #include <ctime>
 #include <iostream>
 
+void ModelDX::CreatePlane(ID3D11Device * device, XMFLOAT2 size)
+{
+	assert(CreateRectangle(device, -size.x / 2, size.x / 2, size.y / 2, -size.y / 2));
+	assert(PrepareBuffers(device));
+}
+
 void ModelDX::SetFullScreenRectangleModel(ID3D11Device * device)
 {
 	assert(CreateRectangle(device, -1.0f, 1.0f, 1.0f, -1.0f));
