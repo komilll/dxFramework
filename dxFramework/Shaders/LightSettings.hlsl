@@ -7,7 +7,7 @@ struct Light
     float radius;
     float3 color;
     
-    uint type;
+    int type;
 };
 
 static const uint LIGHT_TYPE_POINT       = 0;

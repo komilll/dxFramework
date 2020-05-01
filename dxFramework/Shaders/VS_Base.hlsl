@@ -23,6 +23,7 @@ PixelInputType main(VertexInputType input)
 		
 	output.position = float4(input.position, 1.0f);
 	float4 positionWS = mul(output.position, worldMatrix);
+    output.positionWS = positionWS.xyz;
 	
     output.pointToLight.xyz = normalize(-g_directionalLightDirection);
     output.pointToLight.w = g_directionalLightColor.w;

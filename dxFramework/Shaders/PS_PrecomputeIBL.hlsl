@@ -12,7 +12,13 @@ TextureCube<float4> skyboxTexture      : register(t4);
 TextureCube<float4> diffuseIBLTexture  : register(t5);
 TextureCube<float4> specularIBLTexture : register(t6);
 Texture2D           enviroBRDF         : register(t7);
-StructuredBuffer<Light> lightSettings  : register(t13);
+
+cbuffer MatrixBuffer : register(b0)
+{
+    matrix worldMatrix;
+    matrix viewMatrix;
+    matrix projectionMatrix;
+};
 
 cbuffer PrecomputeIBLBuffer : register(b13)
 {
@@ -21,7 +27,12 @@ cbuffer PrecomputeIBLBuffer : register(b13)
     float2 g_paddingPrecomputeIBL;
 }
 
-#define PI 3.14159265f
+cbuffer FrameInfoBuffer : register(b1)
+{
+    float2 g_renderTargetSize;
+    float g_frame;
+    float g_frameInfoBufferPadding;
+}
 
 float3 GetNormalVector(float2 uv)
 {
@@ -62,6 +73,39 @@ float2 HammersleyDistribution(uint index, uint sampleCount)
     return float2(float(index) / float(sampleCount), BitwiseInverseInRange(index));
 }
 
+float2 HammersleyDistribution(uint i, uint N, uint2 random)
+{
+    // Transform to 0-1 interval (2.3283064365386963e-10 == 1.0 / 2^32)
+#if 0
+    float E1 = frac(float(i)/float(N) + float(random.x & 0xffff) / (1<<16));
+    float E2 = float(reversebits(i) ^ random.y) * 2.3283064365386963e-10; // / 0x100000000
+    return float2(E1, E2);
+#else
+    float2 u = float2(float(i) / float(N), reversebits(i) * 2.3283064365386963e-10);
+    u = frac(u + float2(random & 0xffff) / (1 << 16));
+    return u;
+#endif
+}
+
+
+// [Tea, a Tiny Encryption Algorithm]
+// [http://citeseer.ist.psu.edu/viewdoc/download?doi=10.1.1.45.281&rep=rep1&type=pdf]
+// [http://gaim.umbc.edu/2010/07/01/gpu-random-numbers/]
+uint2 randomTea(uint2 seed, uint iterations = 8)
+{
+    const uint k[4] = { 0xA341316C, 0xC8013EA4, 0xAD90777D, 0x7E95761E };
+    const uint delta = 0x9E3779B9;
+    uint sum = 0;
+    [unroll]
+    for (uint i = 0; i < iterations; ++i)
+    {
+        sum += delta;
+        seed.x += (seed.x << 4) + k[0] ^ seed.x + sum ^ (seed.x >> 5) + k[1];
+        seed.y += (seed.y << 4) + k[2] ^ seed.y + sum ^ (seed.y >> 5) + k[3];
+    }
+    return seed;
+}
+
 float3 ImportanceSamplingGGX(float2 Xi, float3 N, float roughness)
 {
     float a = roughness*roughness;
@@ -82,36 +126,68 @@ float3 ImportanceSamplingGGX(float2 Xi, float3 N, float roughness)
     return normalize(tangent * H.x + bitangent * H.y + N * H.z);
 }
 
-float4 MonteCarloSpecular(float3 diffuseColor, float3 specularColor, float3 N, float3 V, float roughness, const uint sampleCount)
+bool IntersectLight(float3 rayOrigin, float3 rayDirection, float3 lightPosition, float radiusSquared, out float t)
+{
+    float3 d = rayOrigin - lightPosition;
+    float b = dot(rayDirection, d);
+    float c = dot(d, d) - radiusSquared;
+    t = b * b - c;
+    if (t > 0.0)
+    {
+        t = -b - sqrt(t);
+        return t > 0.0;
+    }
+    return true;
+}
+
+float4 MonteCarloSpecular(float3 positionWS, float3 diffuseColor, float3 specularColor, float3 N, float3 V, float roughness, const uint sampleCount, Light light)
 {
     float3 specularLighting = 0;
     
     uint lightCount;
     uint stride;
-    lightSettings.GetDimensions(lightCount, stride);
-
+    
+    float3 delta = light.positionWS - positionWS;
+    float distanceSquared = dot(delta, delta);
+    if (distanceSquared <= light.radius * light.radius)
+    {
+        return float4(1, 0, 1, 0);
+    }
+    
+    float4 positionCS = mul(float4(positionWS, 1.0), mul(viewMatrix, projectionMatrix));
+    float2 uv = (positionCS.xy / positionCS.w) * 0.5 + 0.5;
+    uint2 seed = randomTea(asuint(uv * g_renderTargetSize) + g_frame * float2(3, 8), 8);
+    float t;
+    
     for (uint i = 0; i < sampleCount; ++i)
     {
-        float2 Xi = HammersleyDistribution(i, sampleCount);
-        float3 H = ImportanceSamplingGGX(Xi, N, roughness);
-        float3 L = 2 * dot(V, H) * H - V;
+        float2 Xi = HammersleyDistribution(i, sampleCount, seed);
+        float3 L = UniformSampleSphere(Xi.x, Xi.y);
         
-        if (dot(N, L) < 0)
+        [flatten]
+        if (dot(N, L) < 0.0)
             L = -L;
         
-        const float NoV = saturate(dot(N, V));
-        const float NoH = saturate(dot(N, H));
-        const float VoH = saturate(dot(V, H));
-        const float LoH = saturate(dot(L, H));
-        const float NoL = saturate(dot(N, L));
+        if (IntersectLight(positionWS, L, light.positionWS, light.radius * light.radius, t))
+        {
+            const float3 H = normalize(V + L);
+            const float NoL = saturate(dot(N, L));
+            const float3 R = normalize(2.0 * NoL * N - L);
+            const float NoV = saturate(dot(N, V));
+            const float NoH = saturate(dot(N, H));
+            const float VoR = saturate(dot(V, R));
+            const float VoH = saturate(dot(V, H));
+            const float VoL = saturate(dot(V, L));
+            const float LoH = saturate(dot(L, H));
         
-        const float3 diffuse = Diffuse_Disney(NoV, NoL, LoH, roughness) * diffuseColor;
-        const float D = Specular_D_GGX(roughness, NoH);
-        const float G = Specular_G_GGX(roughness, NoV) * Specular_G_GGX(roughness, NoL);
-        const float3 F = Specular_F_Schlick(specularColor, VoH);
-        const float3 specular = F * (D * G);
+            //const float3 diffuse = Diffuse_Disney(NoV, NoL, LoH, roughness) * diffuseColor;
+            const float D = Specular_D_GGX(roughness, NoH);
+            const float G = Specular_G_GGX(roughness, NoV) * Specular_G_GGX(roughness, NoL);
+            const float3 F = Specular_F_Schlick(specularColor, VoH);
+            const float3 specular = F * (D * G);
         
-        specularLighting += (diffuse + specular) / INV_2PI;
+            specularLighting += (specular / INV_2PI);
+        }
     }
     return float4(specularLighting / sampleCount, 1.0f);
 }

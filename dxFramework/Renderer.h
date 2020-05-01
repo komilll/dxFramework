@@ -150,6 +150,13 @@ private:
 	} SpecialBufferPrecomputeIBLStruct;
 	static_assert((sizeof(SpecialBufferPrecomputeIBLStruct) % 16) == 0, "SpecialBufferPrecomputeIBLStruct size must be 16-byte aligned");
 
+	typedef struct _frameInfoBufferStruct {
+		XMFLOAT2 renderTargetSize;
+		float currentFrameCount;
+		float padding;
+	} FrameInfoBufferStruct;
+	static_assert((sizeof(FrameInfoBufferStruct) % 16) == 0, "FrameInfoBufferStruct size must be 16-byte aligned");
+
 	//Constant buffers
 	ConstantBufferStruct m_constantBufferData;
 	UberBufferStruct m_uberBufferData;
@@ -157,6 +164,7 @@ private:
 	SpecialBufferSSAOStruct m_specialBufferSSAOData;
 	SpecialBufferBRDFStruct m_specialBufferBRDFData;
 	SpecialBufferPrecomputeIBLStruct m_specialBufferPrecomputeIBLData;
+	FrameInfoBufferStruct m_frameInfoBufferData;
 
 	ID3D11Buffer* m_vertexBuffer		= NULL;
 	ID3D11Buffer* m_indexBuffer			= NULL;
@@ -169,6 +177,7 @@ private:
 	ID3D11Buffer* m_specialBufferSSAO		   = NULL;
 	ID3D11Buffer* m_specialBufferBRDF		   = NULL;
 	ID3D11Buffer* m_specialBufferPrecomputeIBL = NULL;
+	ID3D11Buffer* m_frameInfoBuffer			   = NULL;
 
 	//Camera data
 	XMFLOAT3 m_cameraPosition{ 0,0,0 };

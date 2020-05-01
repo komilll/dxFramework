@@ -3,7 +3,8 @@
 #include <CBuffer_BindingsBRDF.hlsl>
 #include <PS_PrecomputeIBL.hlsl>
 #include <PS_BRDF_Helper.hlsl>
-//#include <LightSettings.hlsl>
+#include "LightSettings.hlsl"
+#include "AreaLights.hlsl"
 
 SamplerState BrdfLutSampleType : register(s1)
 {
@@ -26,6 +27,8 @@ Texture2D albedoTexture 	: register(t0);
 Texture2D roughnessTexture  : register(t1);
 Texture2D normalTexture 	: register(t2);
 Texture2D metallicTexture 	: register(t3);
+
+StructuredBuffer<Light> lightSettings : register(t13);
 
 ////Normal distribution functions
 //float Specular_D_Beckmann(float roughness, float NoH)
@@ -266,8 +269,14 @@ float4 main(PixelInputType input) : SV_TARGET
     float3 diffuse = prefilteredDiffuse * diffuseColor;
     float3 specular = prefilteredSpecular * (specularColor * envBRDF.x + envBRDF.y);
     
-    return MonteCarloSpecular(diffuseColor, specularColor, N, V, roughness, 16);
+    //return MonteCarloSpecular(input.positionWS.xyz, diffuseColor, specularColor, N, V, roughness, 512);
+    uint lightCount;
+    uint stride;
+    lightSettings.GetDimensions(lightCount, stride);
+    
 	if (g_debugType == DEBUG_NONE){
+        float3 tmp = DiffuseSphereLight_ViewFactor(input.positionWS.xyz, diffuse, N, lightSettings[0]);
+        return float4(tmp, 1.0);
         return float4(diffuse + sunLight + specular, 1.0f);
     }
 	if (g_debugType == DEBUG_DIFF){

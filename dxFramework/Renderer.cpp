@@ -51,7 +51,7 @@ Renderer::Renderer(std::shared_ptr<DeviceManager> deviceManager)
 	m_sphereModel->m_scale = 0.08f;
 
 	m_groundPlaneModel = new ModelDX();
-	m_groundPlaneModel->CreatePlane(device, { 100, 100 });
+	m_groundPlaneModel->CreatePlane(device, { 25, 25 });
 	m_groundPlaneModel->m_rotation = XMFLOAT3{ 89.9f * 0.0174532925f, 0, 0 };
 	m_groundPlaneModel->m_position = XMFLOAT3{ 15.0f, 22.0f, -50.0f };
 
@@ -98,8 +98,8 @@ void Renderer::CreateDeviceDependentResources()
 
 	BaseLight::BaseLightStruct areaLights;
 	areaLights.color = XMFLOAT3{ 1,1,1 };
-	areaLights.radius = 3.0f;
-	areaLights.position = XMFLOAT3{ 10.0f, 25.0f, -20.0f };
+	areaLights.radius = 25.0f;
+	areaLights.position = XMFLOAT3{ 10.0f, 40.0f, -35.0f };
 	areaLights.type = static_cast<int>(BaseLight::LightType::Area);
 	UpdateAreaLights({ areaLights }, 1);
 }
@@ -112,6 +112,10 @@ void Renderer::CreateWindowSizeDependentResources()
 void Renderer::Update()
 {
 	if (m_frameCount == MAXUINT) m_frameCount = 0;
+	if (m_frameInfoBufferData.currentFrameCount < 0) {
+		m_frameInfoBufferData.currentFrameCount = 0;
+	}
+	m_frameInfoBufferData.currentFrameCount++;
 }
 
 void Renderer::Render()
@@ -190,45 +194,45 @@ void Renderer::Render()
 		}
 		if (m_areaLightSRV) context->PSSetShaderResources(13, 1, &m_areaLightSRV);
 
-		//for (const auto& light : m_areaLights)
-		//{
-		//	m_uberBufferData.unlitColor = XMFLOAT4{ light.color.x, light.color.y, light.color.z, 1.0f };
-			//MapResourceData();
-			//SetConstantBuffers();
-		//	const float scale = m_sphereModel->m_scale * light.radius;
+		//Render area lights shape - for debug purposes
+		for (const auto& light : m_areaLights)
+		{
+			m_uberBufferData.unlitColor = XMFLOAT4{ light.color.x, light.color.y, light.color.z, 1.0f };
+			MapResourceData();
+			SetConstantBuffers();
+			const float scale = m_sphereModel->m_scale;// *light.radius * 0.5f;
 
-		//	m_constantBufferData.world = XMMatrixIdentity();
-		//	m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixScaling(scale, scale, scale));
-		//	m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixTranslation(light.position.x, light.position.y, light.position.z));
-		//	m_constantBufferData.world = XMMatrixTranspose(m_constantBufferData.world);
-		//	MapConstantBuffer();
+			m_constantBufferData.world = XMMatrixIdentity();
+			m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixScaling(scale, scale, scale));
+			m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixTranslation(light.position.x, light.position.y, light.position.z));
+			m_constantBufferData.world = XMMatrixTranspose(m_constantBufferData.world);
+			MapConstantBuffer();
 
-		//	m_indexCount = m_sphereModel->Render(context);
-		//	context->DrawIndexed(m_indexCount, 0, 0);
-		//}
+			m_indexCount = m_sphereModel->Render(context);
+			context->DrawIndexed(m_indexCount, 0, 0);
+		}
 
-		m_constantBufferData.world = XMMatrixIdentity();
-		m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixScaling(1, 1, 1));
-		m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixRotationRollPitchYaw(m_groundPlaneModel->m_rotation.x, m_groundPlaneModel->m_rotation.y, m_groundPlaneModel->m_rotation.z));
-		m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixTranslation(m_groundPlaneModel->m_position.x, m_groundPlaneModel->m_position.y, m_groundPlaneModel->m_position.z));
-		m_constantBufferData.world = XMMatrixTranspose(m_constantBufferData.world);
+		//m_constantBufferData.world = XMMatrixIdentity();
+		//m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixScaling(1, 1, 1));
+		//m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixRotationRollPitchYaw(m_groundPlaneModel->m_rotation.x, m_groundPlaneModel->m_rotation.y, m_groundPlaneModel->m_rotation.z));
+		//m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixTranslation(m_groundPlaneModel->m_position.x, m_groundPlaneModel->m_position.y, m_groundPlaneModel->m_position.z));
+		//m_constantBufferData.world = XMMatrixTranspose(m_constantBufferData.world);
 
-		MapConstantBuffer();
+		//MapConstantBuffer();
 
-		m_uberBufferData.unlitColor = XMFLOAT4{ 0, 0, 0, 1.0f };
-		MapResourceData();
-		SetConstantBuffers();
+		//m_uberBufferData.unlitColor = XMFLOAT4{ 0, 0, 0, 1.0f };
+		//MapResourceData();
+		//SetConstantBuffers();
 
-		m_indexCount = m_groundPlaneModel->Render(context);
-		context->DrawIndexed(m_indexCount, 0, 0);
+		//m_indexCount = m_groundPlaneModel->Render(context);
+		//context->DrawIndexed(m_indexCount, 0, 0);
 
-		return;
 		context->VSSetShader(m_baseVertexShader, NULL, 0);
-		context->PSSetShader(m_pixelShaderUnlit, NULL, 0);
+		context->PSSetShader(m_pixelShaderBunny, NULL, 0);
 
 		m_profiler->StartProfiling("Main render loop");
-		constexpr int columnCount = 5;
-		constexpr int rowCount = 5;
+		constexpr int columnCount = 3;
+		constexpr int rowCount = 3;
 		for (int x = 0; x < columnCount; ++x)
 		{
 			for (int y = 0; y < rowCount; ++y)
@@ -238,6 +242,14 @@ void Renderer::Render()
 				m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixTranslation(x * 10.0f, y * 10.0f, 0.0f));
 				m_constantBufferData.world = XMMatrixTranspose(m_constantBufferData.world);
 				MapConstantBuffer();
+
+				if (m_areaLightSRV) 
+				{
+					UpdateAreaLights(m_areaLights, 1);
+					context->PSSetShaderResources(13, 1, &m_areaLightSRV);
+				}
+				if (m_frameInfoBuffer) context->PSSetConstantBuffers(1, 1, &m_frameInfoBuffer);
+				if (m_constantBuffer) context->PSSetConstantBuffers(0, 1, &m_constantBuffer);
 
 				if (m_specialBufferBRDF)
 				{
@@ -407,6 +419,13 @@ HRESULT Renderer::CreateConstantBuffers()
 		return result;
 	}
 
+	constantBufferDesc.ByteWidth = sizeof(FrameInfoBufferStruct);
+	result = device->CreateBuffer(&constantBufferDesc, nullptr, &m_frameInfoBuffer);
+	if (FAILED(result))
+	{
+		return result;
+	}
+
 	return result;
 }
 
@@ -422,8 +441,8 @@ void Renderer::PrepareAreaLightStructures()
 
 	//Create structured buffer for area lights
 	D3D11_BUFFER_DESC areaLightBufferDesc;
-	areaLightBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
 	areaLightBufferDesc.ByteWidth = sizeof(BaseLight::BaseLightStruct) * m_areaLightCount;
+	areaLightBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
 	areaLightBufferDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
 	areaLightBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 	areaLightBufferDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
@@ -527,6 +546,21 @@ void Renderer::MapResourceData()
 		dataPtr->directionalLightColor = m_propertyBufferData.directionalLightColor;
 		context->Unmap(m_propertyBuffer, 0);
 	}
+
+	//MAP FRAME INFO DATA
+	if (m_frameInfoBuffer)
+	{
+		const HRESULT result = context->Map(m_frameInfoBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
+		if (FAILED(result))
+			return;
+
+		FrameInfoBufferStruct* dataPtr = static_cast<FrameInfoBufferStruct*>(mappedResource.pData);
+
+		dataPtr->currentFrameCount = m_frameInfoBufferData.currentFrameCount;
+		dataPtr->renderTargetSize = XMFLOAT2{ 1280,720 }; //TODO magical number
+		dataPtr->padding = 0;
+		context->Unmap(m_frameInfoBuffer, 0);
+	}
 }
 
 void Renderer::SetConstantBuffers()
@@ -572,7 +606,15 @@ void Renderer::UpdateAreaLights(std::vector<BaseLight::BaseLightStruct> data, in
 	ID3D11DeviceContext* context = m_deviceManager->GetDeviceContext();
 
 	assert(SUCCEEDED(context->Map(m_areaLightBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource)));
-	memcpy(mappedResource.pData, &data, sizeof(BaseLight::BaseLightStruct) * m_areaLightCount);
+
+	BaseLight::BaseLightStruct* dataPtr = static_cast<BaseLight::BaseLightStruct*>(mappedResource.pData);
+
+	dataPtr->color = m_areaLights.at(0).color;
+	dataPtr->position = m_areaLights.at(0).position;
+	dataPtr->radius = m_areaLights.at(0).radius;
+	dataPtr->type = m_areaLights.at(0).type;
+
+	//memcpy(mappedResource.pData, &data, sizeof(BaseLight::BaseLightStruct) * m_areaLightCount);
 	context->Unmap(m_areaLightBuffer, 0);
 }
 
