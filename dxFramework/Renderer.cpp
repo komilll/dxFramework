@@ -97,9 +97,21 @@ void Renderer::CreateDeviceDependentResources()
 	PrepareAreaLightStructures();
 
 	BaseLight::BaseLightStruct areaLights;
+	areaLights.radius = 1.0f;
+	areaLights.position = XMFLOAT3{ 50.0f, 40.0f, -35.0f };
+	areaLights.area = areaLights.radius * areaLights.radius * 4.0f * 3.14f;
+	areaLights.padding = XMFLOAT3{ 0,0,0 };
+
+	//Sphere color
 	areaLights.color = XMFLOAT3{ 1,1,1 };
-	areaLights.radius = 25.0f;
-	areaLights.position = XMFLOAT3{ 10.0f, 40.0f, -35.0f };
+	const float intensity = 100000.0f;
+	const XMVECTOR multipliedColorIntensity = XMVectorMultiply(XMVECTOR{ areaLights.color.x, areaLights.color.y, areaLights.color.z }, XMVECTOR{ intensity, intensity, intensity });
+	areaLights.color = XMFLOAT3{ multipliedColorIntensity.m128_f32[0], multipliedColorIntensity.m128_f32[1], multipliedColorIntensity.m128_f32[2] };
+	
+	areaLights.color.x /= areaLights.area * 3.14f;
+	areaLights.color.y /= areaLights.area * 3.14f;
+	areaLights.color.z /= areaLights.area * 3.14f;
+
 	areaLights.type = static_cast<int>(BaseLight::LightType::Area);
 	UpdateAreaLights({ areaLights }, 1);
 }
@@ -200,7 +212,7 @@ void Renderer::Render()
 			m_uberBufferData.unlitColor = XMFLOAT4{ light.color.x, light.color.y, light.color.z, 1.0f };
 			MapResourceData();
 			SetConstantBuffers();
-			const float scale = m_sphereModel->m_scale;// *light.radius * 0.5f;
+			const float scale = m_sphereModel->m_scale * light.radius * 0.5f;
 
 			m_constantBufferData.world = XMMatrixIdentity();
 			m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixScaling(scale, scale, scale));
@@ -231,8 +243,8 @@ void Renderer::Render()
 		context->PSSetShader(m_pixelShaderBunny, NULL, 0);
 
 		m_profiler->StartProfiling("Main render loop");
-		constexpr int columnCount = 3;
-		constexpr int rowCount = 3;
+		constexpr int columnCount = 6;
+		constexpr int rowCount = 6;
 		for (int x = 0; x < columnCount; ++x)
 		{
 			for (int y = 0; y < rowCount; ++y)

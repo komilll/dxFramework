@@ -6,8 +6,10 @@ struct Light
     float3 positionWS;
     float radius;
     float3 color;
+    float area;
     
     int type;
+    float3 padding;
 };
 
 static const uint LIGHT_TYPE_POINT       = 0;

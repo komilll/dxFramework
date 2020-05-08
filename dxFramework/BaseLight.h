@@ -20,8 +20,10 @@ public:
 		XMFLOAT3 position;
 		float radius;
 		XMFLOAT3 color;
+		float area;
 
 		int type; /*LightType*/ 
+		XMFLOAT3 padding;
 	} BaseLightStruct;
 
 	BaseLight() = default;

@@ -1,3 +1,6 @@
+#ifndef _PS_BRDF_HLSL_
+#define _PS_BRDF_HLSL_
+
 #include <PS_Input.hlsl> //PixelInputType
 #include <ALL_SettingsBRDF.hlsl>
 #include <CBuffer_BindingsBRDF.hlsl>
@@ -274,15 +277,25 @@ float4 main(PixelInputType input) : SV_TARGET
     uint stride;
     lightSettings.GetDimensions(lightCount, stride);
     
+    float4 color = 0;
+    const float4 environmentLight = float4(diffuse + sunLight + specular, 1.0f);
+    color = environmentLight;
+    
+    float3 diffAreaLight = DiffuseSphereLight_ViewFactor(input.positionWS.xyz, diffuse, N, lightSettings[0]);
+    float3 specAreaLight = SpecularSphereLight_KarisMRP(input.positionWS.xyz, specular, roughness, N, V, lightSettings[0]);
+    
+    color = float4((diffAreaLight + specAreaLight) * lightSettings[0].color, 1.0f);
+    
 	if (g_debugType == DEBUG_NONE){
-        float3 tmp = DiffuseSphereLight_ViewFactor(input.positionWS.xyz, diffuse, N, lightSettings[0]);
-        return float4(tmp, 1.0);
-        return float4(diffuse + sunLight + specular, 1.0f);
+        return color;
+        return environmentLight;
     }
 	if (g_debugType == DEBUG_DIFF){
+        return float4(/*diffuse + */ diffAreaLight * lightSettings[0].color, 1.0);
         return float4(diffuse, 1.0f);
     }
 	if (g_debugType == DEBUG_SPEC){
+        return float4(/*specular + */ specAreaLight * lightSettings[0].color, 1.0);
         return float4(sunLight + specular, 1.0f);
 	}
 	if (g_debugType == DEBUG_ALBEDO){
@@ -309,3 +322,5 @@ float4 main(PixelInputType input) : SV_TARGET
 
 	return float4(1.0f, 0.0f, 1.0f, 1.0f);
 }
+
+#endif //_PS_BRDF_HLSL_
