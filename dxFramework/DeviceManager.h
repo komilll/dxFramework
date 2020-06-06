@@ -19,7 +19,7 @@ public:
 	void UseViewport();
 	void UseSkyboxDepthStencilStateAndRasterizer();
 	void UseStandardDepthStencilStateAndRasterizer();
-	void SetBackBufferRenderTarget();
+	void SetBackBufferRenderTarget(bool clearTarget = true, bool clearDepth = true);
 
 	ID3D11Device* GetDevice() const { return m_device; };
 	ID3D11DeviceContext* GetDeviceContext() const { return m_deviceContext; };
@@ -32,20 +32,20 @@ public:
 	void Present();
 
 private:
-	ID3D11Device* m_device;
-	ID3D11DeviceContext* m_deviceContext;
-	IDXGISwapChain* m_swapChain;
+	ID3D11Device* m_device								= NULL;
+	ID3D11DeviceContext* m_deviceContext				= NULL;
+	IDXGISwapChain* m_swapChain							= NULL;
 
-	ID3D11Texture2D* m_backBuffer;
-	ID3D11RenderTargetView* m_renderTarget;
+	ID3D11Texture2D* m_backBuffer						= NULL;
+	ID3D11RenderTargetView* m_renderTarget				= NULL;
 
-	ID3D11Texture2D* m_depthStencil;
-	ID3D11DepthStencilView* m_depthStencilView;
-	ID3D11DepthStencilState* m_depthStencilState;
-	ID3D11RasterizerState* m_rasterState;
+	ID3D11Texture2D* m_depthStencil						= NULL;
+	ID3D11DepthStencilView* m_depthStencilView			= NULL;
+	ID3D11DepthStencilState* m_depthStencilState		= NULL;
+	ID3D11RasterizerState* m_rasterState				= NULL;
 
-	ID3D11DepthStencilState* m_skyboxDepthStencilState;
-	ID3D11RasterizerState* m_skyboxRasterState;
+	ID3D11DepthStencilState* m_skyboxDepthStencilState	= NULL;
+	ID3D11RasterizerState* m_skyboxRasterState			= NULL;
 	
 	D3D_FEATURE_LEVEL m_featureLevel;
 	D3D11_TEXTURE2D_DESC m_backBufferDesc;

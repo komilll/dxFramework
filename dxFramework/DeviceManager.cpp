@@ -95,11 +95,11 @@ HRESULT DeviceManager::ConfigureBackBuffer()
 	depthBufferTextureDesc.Height = static_cast<UINT>(m_backBufferDesc.Height);
 	depthBufferTextureDesc.MipLevels = 1;
 	depthBufferTextureDesc.ArraySize = 1;
-	depthBufferTextureDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	depthBufferTextureDesc.Format = DXGI_FORMAT_R24G8_TYPELESS;
 	depthBufferTextureDesc.SampleDesc.Count = 1;
 	depthBufferTextureDesc.SampleDesc.Quality = 0;
 	depthBufferTextureDesc.Usage = D3D11_USAGE_DEFAULT;
-	depthBufferTextureDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+	depthBufferTextureDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL | D3D11_BIND_SHADER_RESOURCE;
 	depthBufferTextureDesc.CPUAccessFlags = 0;
 	depthBufferTextureDesc.MiscFlags = 0;
 
@@ -118,8 +118,8 @@ HRESULT DeviceManager::ConfigureBackBuffer()
 	depthStencilDesc.DepthFunc = D3D11_COMPARISON_LESS;
 
 	depthStencilDesc.StencilEnable = true;
-	depthStencilDesc.StencilReadMask = 0xFF;
-	depthStencilDesc.StencilWriteMask = 0xFF;
+	depthStencilDesc.StencilReadMask = D3D11_DEPTH_WRITE_MASK_ALL;
+	depthStencilDesc.StencilWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
 
 	// Stencil operations if pixel is front-facing.
 	depthStencilDesc.FrontFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
@@ -155,7 +155,7 @@ HRESULT DeviceManager::ConfigureBackBuffer()
 	depthStencilViewDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
 	depthStencilViewDesc.Texture2D.MipSlice = 0;
 
-	m_device->CreateDepthStencilView(m_depthStencil, &depthStencilViewDesc, &m_depthStencilView);
+	result = m_device->CreateDepthStencilView(m_depthStencil, &depthStencilViewDesc, &m_depthStencilView);
 	if (FAILED(result))
 		return result;
 
@@ -323,12 +323,12 @@ void DeviceManager::UseStandardDepthStencilStateAndRasterizer()
 	m_deviceContext->RSSetState(m_rasterState);
 }
 
-void DeviceManager::SetBackBufferRenderTarget()
+void DeviceManager::SetBackBufferRenderTarget(bool clearTarget, bool clearDepth)
 {
 	const float teal[] = { 0.098f, 0.439f, 0.439f, 1.000f };
 	m_deviceContext->OMSetRenderTargets(1, &m_renderTarget, m_depthStencilView);
-	m_deviceContext->ClearRenderTargetView(m_renderTarget, teal);
-	m_deviceContext->ClearDepthStencilView(m_depthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+	if (clearTarget) m_deviceContext->ClearRenderTargetView(m_renderTarget, teal);
+	if (clearDepth) m_deviceContext->ClearDepthStencilView(m_depthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 	UseViewport();
 }
 

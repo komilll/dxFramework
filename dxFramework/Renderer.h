@@ -79,10 +79,17 @@ private:
 	bool CreateDiffuseCubemapIBL();
 
 	void RenderToBackBuffer(RenderTexture* texture);
+	void RenderToBackBuffer(ID3D11ShaderResourceView* resource);
 	void RenderGBuffer(Renderer::GBufferType type);
 	void RenderSSAO();
+	void RenderSphereFromGrid(XMFLOAT3 position, float roughness, float metallic);
+	void RenderShadowMap();
 
 	void SaveTextureToFile(RenderTexture * texture, const wchar_t* name);
+
+	XMMATRIX CreateViewMatrix(const XMVECTOR lookAt, const XMFLOAT3 position);
+	XMMATRIX CreateProjectionMatrix();
+	XMMATRIX CreateOrthographicMatrix();
 
 private:
 //DEBUG SETTINGS
@@ -206,6 +213,7 @@ private:
 	RenderTexture* m_backBufferRenderTexture	 = NULL;
 	RenderTexture* m_diffuseConvolutionTexture	 = NULL;
 	RenderTexture* m_environmentBRDF			 = NULL;
+	RenderTexture* m_shadowMapTexture			 = NULL;
 	std::array<RenderTexture*, SPECULAR_CONVOLUTION_MIPS * 6> m_specularConvolutionTexture;
 	ModelDX* m_backBufferQuadModel				 = NULL;
 	ModelDX* m_bunnyModel						 = NULL;
@@ -231,6 +239,7 @@ private:
 	ID3D11PixelShader* m_pixelShaderSpecularIBL     = NULL;
 	ID3D11PixelShader* m_pixelShaderEnvironmentBRDF = NULL;
 	ID3D11PixelShader* m_pixelShaderUnlit			= NULL;
+	ID3D11PixelShader* m_pixelShaderBlinnPhong		= NULL;
 
 	//Area light variables
 	ID3D11Buffer* m_areaLightBuffer			 = NULL;

@@ -32,11 +32,12 @@ Renderer::Renderer(std::shared_ptr<DeviceManager> deviceManager)
 	m_renderTexture = new RenderTexture(1280, 720, device);
 	m_positionBufferTexture = new RenderTexture(1280, 720, device);
 	m_normalBufferTexture = new RenderTexture(1280, 720, device);
-	m_depthBufferTexture = new RenderTexture(1280, 720, device, DXGI_FORMAT_R16_FLOAT);
-	m_ssaoBufferTexture = new RenderTexture(1280, 720, device, DXGI_FORMAT_R32_FLOAT);
+	m_depthBufferTexture = new RenderTexture(1280, 720, device, false, DXGI_FORMAT_R16_FLOAT);
+	m_ssaoBufferTexture = new RenderTexture(1280, 720, device, false, DXGI_FORMAT_R32_FLOAT);
 	m_backBufferRenderTexture = new RenderTexture(1280, 720, device);
 	m_diffuseConvolutionTexture = new RenderTexture(256, 256, device);
-	m_environmentBRDF = new RenderTexture(256, 256, device, DXGI_FORMAT_R32G32_FLOAT);
+	m_environmentBRDF = new RenderTexture(256, 256, device, false, DXGI_FORMAT_R32G32_FLOAT);
+	m_shadowMapTexture = new RenderTexture(1280, 720, device, true);
 	for (auto& texture : m_specularConvolutionTexture) { texture = new RenderTexture(256, 256, device); }
 	
 	m_backBufferQuadModel = new ModelDX();
@@ -70,6 +71,7 @@ Renderer::Renderer(std::shared_ptr<DeviceManager> deviceManager)
 	ShaderSwapper::CompileShader("", "PS_PrecomputeIBL.hlsl", &m_pixelShaderSpecularIBL, NULL, &m_inputLayout, device, "", "SpecularPrecompute");
 	ShaderSwapper::CompileShader("", "PS_PrecomputeIBL.hlsl", &m_pixelShaderEnvironmentBRDF, NULL, &m_inputLayout, device, "", "PrecomputeEnvironmentLUT");
 	ShaderSwapper::CompileShader("", "PS_Unlit.hlsl", &m_pixelShaderUnlit, NULL, &m_inputLayout, device);
+	ShaderSwapper::CompileShader("", "PS_BlinnPhong.hlsl", &m_pixelShaderBlinnPhong, NULL, &m_inputLayout, device);
 	
 	//Prepare SSAO data
 	m_ssao = new ShaderSSAO(device);
@@ -138,10 +140,16 @@ void Renderer::Render()
 	ID3D11DepthStencilView* depthStencil = m_deviceManager->GetDepthStencil();
 
 	if (m_baseVertexShader && m_pixelShaderBunny && m_pixelShaderUnlit)
-	{		
-		m_deviceManager->SetBackBufferRenderTarget();
+	{
 		//Input layout is the same for all vertex shaders for now
 		context->IASetInputLayout(m_inputLayout);
+		m_deviceManager->SetBackBufferRenderTarget();
+
+		RenderShadowMap();
+		RenderToBackBuffer(m_shadowMapTexture->GetResourceView());
+		return;
+
+		m_deviceManager->SetBackBufferRenderTarget();
 
 		//m_renderTexture->SetAsActiveTarget(context, depthStencil, true, true);
 
@@ -207,97 +215,61 @@ void Renderer::Render()
 		if (m_areaLightSRV) context->PSSetShaderResources(13, 1, &m_areaLightSRV);
 
 		//Render area lights shape - for debug purposes
-		for (const auto& light : m_areaLights)
-		{
-			m_uberBufferData.unlitColor = XMFLOAT4{ light.color.x, light.color.y, light.color.z, 1.0f };
-			MapResourceData();
-			SetConstantBuffers();
-			const float scale = m_sphereModel->m_scale * light.radius * 0.5f;
+		//for (const auto& light : m_areaLights)
+		//{
+		//	m_uberBufferData.unlitColor = XMFLOAT4{ light.color.x, light.color.y, light.color.z, 1.0f };
+		//	MapResourceData();
+		//	SetConstantBuffers();
+		//	const float scale = m_sphereModel->m_scale * light.radius * 0.5f;
 
-			m_constantBufferData.world = XMMatrixIdentity();
-			m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixScaling(scale, scale, scale));
-			m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixTranslation(light.position.x, light.position.y, light.position.z));
-			m_constantBufferData.world = XMMatrixTranspose(m_constantBufferData.world);
-			MapConstantBuffer();
+		//	m_constantBufferData.world = XMMatrixIdentity();
+		//	m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixScaling(scale, scale, scale));
+		//	m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixTranslation(light.position.x, light.position.y, light.position.z));
+		//	m_constantBufferData.world = XMMatrixTranspose(m_constantBufferData.world);
+		//	MapConstantBuffer();
 
-			m_indexCount = m_sphereModel->Render(context);
-			context->DrawIndexed(m_indexCount, 0, 0);
-		}
+		//	m_indexCount = m_sphereModel->Render(context);
+		//	context->DrawIndexed(m_indexCount, 0, 0);
+		//}
 
-		//m_constantBufferData.world = XMMatrixIdentity();
-		//m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixScaling(1, 1, 1));
-		//m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixRotationRollPitchYaw(m_groundPlaneModel->m_rotation.x, m_groundPlaneModel->m_rotation.y, m_groundPlaneModel->m_rotation.z));
-		//m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixTranslation(m_groundPlaneModel->m_position.x, m_groundPlaneModel->m_position.y, m_groundPlaneModel->m_position.z));
-		//m_constantBufferData.world = XMMatrixTranspose(m_constantBufferData.world);
+		/* Render plane */
+		context->PSSetShader(m_pixelShaderBlinnPhong, NULL, 0);
 
-		//MapConstantBuffer();
+		m_constantBufferData.world = XMMatrixIdentity();
+		m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixScaling(1, 1, 1));
+		m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixRotationRollPitchYaw(m_groundPlaneModel->m_rotation.x, m_groundPlaneModel->m_rotation.y, m_groundPlaneModel->m_rotation.z));
+		m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixTranslation(m_groundPlaneModel->m_position.x, m_groundPlaneModel->m_position.y, m_groundPlaneModel->m_position.z));
+		m_constantBufferData.world = XMMatrixTranspose(m_constantBufferData.world);
 
-		//m_uberBufferData.unlitColor = XMFLOAT4{ 0, 0, 0, 1.0f };
-		//MapResourceData();
-		//SetConstantBuffers();
+		MapConstantBuffer();
 
-		//m_indexCount = m_groundPlaneModel->Render(context);
-		//context->DrawIndexed(m_indexCount, 0, 0);
+		m_uberBufferData.unlitColor = XMFLOAT4{ 0, 0, 0, 1.0f };
+		MapResourceData();
+		SetConstantBuffers();
+
+		m_indexCount = m_groundPlaneModel->Render(context);
+		context->DrawIndexed(m_indexCount, 0, 0);
+		/* End render plane */
 
 		context->VSSetShader(m_baseVertexShader, NULL, 0);
-		context->PSSetShader(m_pixelShaderBunny, NULL, 0);
+		//context->PSSetShader(m_pixelShaderBunny, NULL, 0);
+		m_indexCount = m_sphereModel->Render(context);
 
-		m_profiler->StartProfiling("Main render loop");
-		constexpr int columnCount = 6;
-		constexpr int rowCount = 6;
-		for (int x = 0; x < columnCount; ++x)
-		{
-			for (int y = 0; y < rowCount; ++y)
-			{
-				m_constantBufferData.world = XMMatrixIdentity();
-				m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixScaling(m_sphereModel->m_scale, m_sphereModel->m_scale, m_sphereModel->m_scale));
-				m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixTranslation(x * 10.0f, y * 10.0f, 0.0f));
-				m_constantBufferData.world = XMMatrixTranspose(m_constantBufferData.world);
-				MapConstantBuffer();
+		RenderSphereFromGrid(XMFLOAT3{ m_groundPlaneModel->m_position.x, m_groundPlaneModel->m_position.y + 1.0f, m_groundPlaneModel->m_position.z }, 1.0f, 0.0f);
 
-				if (m_areaLightSRV) 
-				{
-					UpdateAreaLights(m_areaLights, 1);
-					context->PSSetShaderResources(13, 1, &m_areaLightSRV);
-				}
-				if (m_frameInfoBuffer) context->PSSetConstantBuffers(1, 1, &m_frameInfoBuffer);
-				if (m_constantBuffer) context->PSSetConstantBuffers(0, 1, &m_constantBuffer);
-
-				if (m_specialBufferBRDF)
-				{
-					D3D11_MAPPED_SUBRESOURCE mappedResource;
-					const HRESULT result = context->Map(m_specialBufferBRDF, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
-					if (FAILED(result))
-						return;
-
-					SpecialBufferBRDFStruct* dataPtr = static_cast<SpecialBufferBRDFStruct*>(mappedResource.pData);
-
-					dataPtr->ndfType = static_cast<int>(m_ndfType);
-					dataPtr->geometryType = static_cast<int>(m_geometryType);
-					dataPtr->fresnelType = static_cast<int>(m_fresnelType);
-
-					dataPtr->hasAlbedo = static_cast<int>(m_baseResourceView != NULL);
-					dataPtr->hasNormal = static_cast<int>(m_normalResourceView != NULL);
-					dataPtr->hasRoughness = static_cast<int>(m_roughnessResourceView != NULL);
-					dataPtr->hasMetallic = static_cast<int>(m_metallicResourceView != NULL);
-
-					dataPtr->roughnessValue = max(static_cast<float>(x) * (1.0f / max(1.0f, (columnCount - 1))), 0.001f);
-					dataPtr->metallicValue = static_cast<float>(y) * (1.0f / max(1, (rowCount - 1)));
-					//dataPtr->metallicValue = 1;
-					dataPtr->f0 = min(max(m_specialBufferBRDFData.f0, 0.001f), 0.99999f);
-
-					dataPtr->debugType = static_cast<int>(m_debugType);
-
-					dataPtr->padding = 0;
-					context->Unmap(m_specialBufferBRDF, 0);
-
-					if (m_specialBufferBRDF) context->PSSetConstantBuffers(13, 1, &m_specialBufferBRDF);
-				}
-
-				context->DrawIndexed(m_indexCount, 0, 0);
-			}
-		}
-		m_profiler->EndProfiling("Main render loop");
+		//m_profiler->StartProfiling("Main render loop");
+		//constexpr int columnCount = 6;
+		//constexpr int rowCount = 6;
+		//for (int x = 0; x < columnCount; ++x)
+		//{
+		//	for (int y = 0; y < rowCount; ++y)
+		//	{
+		//		const float roughness = max(static_cast<float>(x) * (1.0f / max(1.0f, (columnCount - 1))), 0.001f);
+		//		const float metallic = static_cast<float>(y) * (1.0f / max(1, (rowCount - 1)));
+		//		RenderSphereFromGrid(XMFLOAT3{ x * 10.0f, y * 10.0f, 0.0f}, roughness, metallic);
+		//	}
+		//}
+		//m_profiler->EndProfiling("Main render loop");
 
 		DrawSkybox();
 		//RenderToBackBuffer(m_renderTexture);
@@ -915,20 +887,27 @@ bool Renderer::CreateDiffuseCubemapIBL()
 
 void Renderer::RenderToBackBuffer(RenderTexture * texture)
 {
+	if (texture)
+	{
+		if (auto texView = texture->GetResourceView()) {
+			RenderToBackBuffer(texView);
+		}
+	}
+}
+
+void Renderer::RenderToBackBuffer(ID3D11ShaderResourceView * resource)
+{
 	ID3D11DeviceContext* context = m_deviceManager->GetDeviceContext();
 
-	m_deviceManager->SetBackBufferRenderTarget();
+	m_deviceManager->SetBackBufferRenderTarget(false, false);
 	m_indexCount = m_backBufferQuadModel->Render(context);
-	
+
 	context->VSSetShader(m_vertexShaderBackBuffer, NULL, 0);
 	context->PSSetShader(m_pixelShaderBackBuffer, NULL, 0);
 
 	if (m_baseSamplerState) context->PSSetSamplers(0, 1, &m_baseSamplerState);
-	if (texture)
-	{
-		if (auto texView = texture->GetResourceView()) {
-			context->PSSetShaderResources(0, 1, &texView);
-		}
+	if (resource) {
+		context->PSSetShaderResources(0, 1, &resource);
 	}
 
 	context->DrawIndexed(m_indexCount, 0, 0);
@@ -1045,6 +1024,100 @@ void Renderer::RenderSSAO()
 	context->DrawIndexed(m_indexCount, 0, 0);
 }
 
+void Renderer::RenderSphereFromGrid(XMFLOAT3 position, float roughness, float metallic)
+{
+	ID3D11DeviceContext* context = m_deviceManager->GetDeviceContext();
+
+	m_constantBufferData.world = XMMatrixIdentity();
+	m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixScaling(m_sphereModel->m_scale, m_sphereModel->m_scale, m_sphereModel->m_scale));
+	m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixTranslation(position.x, position.y, position.z));
+	m_constantBufferData.world = XMMatrixTranspose(m_constantBufferData.world);
+	MapConstantBuffer();
+
+	if (m_areaLightSRV)
+	{
+		UpdateAreaLights(m_areaLights, 1);
+		context->PSSetShaderResources(13, 1, &m_areaLightSRV);
+	}
+	if (m_frameInfoBuffer) context->PSSetConstantBuffers(1, 1, &m_frameInfoBuffer);
+	if (m_constantBuffer) context->PSSetConstantBuffers(0, 1, &m_constantBuffer);
+
+	if (m_specialBufferBRDF)
+	{
+		D3D11_MAPPED_SUBRESOURCE mappedResource;
+		const HRESULT result = context->Map(m_specialBufferBRDF, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
+		if (FAILED(result))
+			return;
+
+		SpecialBufferBRDFStruct* dataPtr = static_cast<SpecialBufferBRDFStruct*>(mappedResource.pData);
+
+		dataPtr->ndfType = static_cast<int>(m_ndfType);
+		dataPtr->geometryType = static_cast<int>(m_geometryType);
+		dataPtr->fresnelType = static_cast<int>(m_fresnelType);
+
+		dataPtr->hasAlbedo = static_cast<int>(m_baseResourceView != NULL);
+		dataPtr->hasNormal = static_cast<int>(m_normalResourceView != NULL);
+		dataPtr->hasRoughness = static_cast<int>(m_roughnessResourceView != NULL);
+		dataPtr->hasMetallic = static_cast<int>(m_metallicResourceView != NULL);
+
+		dataPtr->roughnessValue = roughness;
+		dataPtr->metallicValue = metallic;
+		//dataPtr->metallicValue = 1;
+		dataPtr->f0 = min(max(m_specialBufferBRDFData.f0, 0.001f), 0.99999f);
+
+		dataPtr->debugType = static_cast<int>(m_debugType);
+
+		dataPtr->padding = 0;
+		context->Unmap(m_specialBufferBRDF, 0);
+
+		if (m_specialBufferBRDF) context->PSSetConstantBuffers(13, 1, &m_specialBufferBRDF);
+	}
+
+	context->DrawIndexed(m_indexCount, 0, 0);
+}
+
+void Renderer::RenderShadowMap()
+{
+	ID3D11DeviceContext* context = m_deviceManager->GetDeviceContext();
+
+	m_shadowMapTexture->SetAsActiveTarget(m_deviceManager->GetDeviceContext(), m_deviceManager->GetDepthStencil(), true, true, XMFLOAT4{ 1,1,1,1 }, true);
+
+	context->VSSetShader(m_baseVertexShader, NULL, 0);
+	context->PSSetShader(NULL, NULL, 0);
+
+	if (m_roughnessResourceView) context->PSSetShaderResources(1, 1, &m_roughnessResourceView);
+	if (m_normalResourceView) context->PSSetShaderResources(2, 1, &m_normalResourceView);
+	if (m_metallicResourceView) context->PSSetShaderResources(3, 1, &m_metallicResourceView);
+	if (m_skyboxResourceView) context->PSSetShaderResources(4, 1, &m_skyboxResourceView);
+	if (m_diffuseIBLResourceView) context->PSSetShaderResources(5, 1, &m_diffuseIBLResourceView);
+	if (m_specularIBLResourceView) context->PSSetShaderResources(6, 1, &m_specularIBLResourceView);
+	if (m_environmentBRDF && m_environmentBRDF->GetResourceView()) {
+		auto tex = m_environmentBRDF->GetResourceView();
+		context->PSSetShaderResources(7, 1, &tex);
+	}
+	if (m_areaLightSRV) context->PSSetShaderResources(13, 1, &m_areaLightSRV);
+
+	/* Render plane */
+	m_constantBufferData.world = XMMatrixIdentity();
+	m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixScaling(1, 1, 1));
+	m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixRotationRollPitchYaw(m_groundPlaneModel->m_rotation.x, m_groundPlaneModel->m_rotation.y, m_groundPlaneModel->m_rotation.z));
+	m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixTranslation(m_groundPlaneModel->m_position.x, m_groundPlaneModel->m_position.y, m_groundPlaneModel->m_position.z));
+	m_constantBufferData.world = XMMatrixTranspose(m_constantBufferData.world);
+
+	//m_constantBufferData.view = CreateViewMatrix(m_uberBufferData.directionalLightDirection, XMFLOAT3{ m_uberBufferData.directionalLightDirection.x * 10.0f, m_uberBufferData.directionalLightDirection.y * 10.0f, m_uberBufferData.directionalLightDirection.z * 10.0f });
+	//m_constantBufferData.view = CreateViewMatrix(XMVECTOR{ 0,0,0 }, XMFLOAT3{ m_uberBufferData.directionalLightDirection.x, m_uberBufferData.directionalLightDirection.y, m_uberBufferData.directionalLightDirection.z });
+	//m_constantBufferData.projection = CreateOrthographicMatrix();
+
+	MapConstantBuffer();
+
+	m_uberBufferData.unlitColor = XMFLOAT4{ 0, 0, 0, 1.0f };
+	MapResourceData();
+	SetConstantBuffers();
+
+	m_indexCount = m_groundPlaneModel->Render(context);
+	context->DrawIndexed(m_indexCount, 0, 0);
+}
+
 void Renderer::SaveTextureToFile(RenderTexture * texture, const wchar_t* name)
 {
 	if (texture && texture->GetResourceView() && m_deviceManager->GetDeviceContext())
@@ -1056,4 +1129,25 @@ void Renderer::SaveTextureToFile(RenderTexture * texture, const wchar_t* name)
 			assert(false);
 		}
 	}
+}
+
+XMMATRIX Renderer::CreateViewMatrix(const XMVECTOR lookAt, const XMFLOAT3 position)
+{
+	const DirectX::XMVECTOR up = DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.f);
+	const DirectX::XMVECTOR eye = DirectX::XMVectorSet(position.x, position.y, position.z, 0.0f);
+
+	//Create view matrix
+	return DirectX::XMMatrixTranspose(DirectX::XMMatrixLookAtLH(eye, lookAt, up));
+}
+
+XMMATRIX Renderer::CreateProjectionMatrix()
+{
+	constexpr float FOV = 3.14f / 4.0f;
+	const float aspectRatio = m_deviceManager->GetAspectRatio();
+	return DirectX::XMMatrixTranspose(DirectX::XMMatrixPerspectiveFovLH(FOV, aspectRatio, 0.01f, 100.0f));
+}
+
+XMMATRIX Renderer::CreateOrthographicMatrix()
+{
+	return DirectX::XMMatrixTranspose(DirectX::XMMatrixOrthographicLH(1280, 720, 0.01f, 100.0f));;
 }
