@@ -13,6 +13,9 @@ typedef struct _uberBufferStruct {
 
 	XMFLOAT3 viewerPosition;
 	float pad2 = 0;
+
+	XMMATRIX lightViewMatrix;
+	XMMATRIX lightProjMatrix;
 } UberBufferStruct;
 static_assert((sizeof(UberBufferStruct) % 16) == 0, "UberBuffer size must be 16-byte aligned");
 

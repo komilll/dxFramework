@@ -37,6 +37,9 @@ PixelInputType main(VertexInputType input)
 
 	output.viewDir.xyz = normalize(g_viewerPosition.xyz - positionWS.xyz);
 
+    output.lightPos = mul(positionWS, g_lightViewMatrix);
+    output.lightPos = mul(output.lightPos, g_lightProjMatrix);
+    
 	output.uv = input.uv;
 	
 	return output;

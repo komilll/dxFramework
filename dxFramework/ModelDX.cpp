@@ -48,6 +48,28 @@ unsigned int ModelDX::Render(ID3D11DeviceContext* context)
 		return 0;
 }
 
+ModelDX::Bounds ModelDX::GetBounds(int meshIndex)
+{
+	ModelDX::Mesh mesh = GetMesh(meshIndex);
+	Bounds bounds{ FLT_MAX, FLT_MAX, FLT_MAX, -FLT_MAX, -FLT_MAX, -FLT_MAX };
+
+	for (int i = 0; i < mesh.vertexCount; ++i)
+	{
+		XMFLOAT3 pos = mesh.vertices[i].position;
+
+		if (pos.x > bounds.maxX) bounds.maxX = pos.x;
+		if (pos.x < bounds.minX) bounds.minX = pos.x;
+
+		if (pos.y > bounds.maxY) bounds.maxY = pos.y;
+		if (pos.y < bounds.minY) bounds.minY = pos.y;
+
+		if (pos.z > bounds.maxZ) bounds.maxZ = pos.z;
+		if (pos.z < bounds.minZ) bounds.minZ = pos.z;
+	}
+
+	return bounds;
+}
+
 void ModelDX::ProcessNode(aiNode * node, const aiScene * scene)
 {
 	for (unsigned int i = 0; i < node->mNumMeshes; ++i) 
@@ -187,6 +209,13 @@ bool ModelDX::CreateRectangle(ID3D11Device * device, float left, float right, fl
 	localMesh.vertices[3].position = XMFLOAT3(left, top, 0.0f);  // Top left.
 	localMesh.vertices[4].position = XMFLOAT3(right, top, 0.0f);  // Top right.
 	localMesh.vertices[5].position = XMFLOAT3(right, bottom, 0.0f);  // Bottom right.
+
+	localMesh.vertices[0].normal = XMFLOAT3(0.0f, 0.0f, -1.0f);
+	localMesh.vertices[1].normal = XMFLOAT3(0.0f, 0.0f, -1.0f);
+	localMesh.vertices[2].normal = XMFLOAT3(0.0f, 0.0f, -1.0f);
+	localMesh.vertices[3].normal = XMFLOAT3(0.0f, 0.0f, -1.0f);
+	localMesh.vertices[4].normal = XMFLOAT3(0.0f, 0.0f, -1.0f);
+	localMesh.vertices[5].normal = XMFLOAT3(0.0f, 0.0f, -1.0f);
 
 	//Set UV values
 	{

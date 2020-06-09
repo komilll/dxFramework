@@ -5,7 +5,7 @@ RenderTexture::RenderTexture(int width, int height, ID3D11Device * device, bool 
 	assert(device);
 	assert(width > 0 && height > 0);
 	if (depthOnly) {
-		InitializeRenderTextureForDepth(width, height, device);
+		assert(InitializeRenderTextureForDepth(width, height, device));
 	}
 	else {
 		assert(InitializeRenderTexture(width, height, device, format));
@@ -147,7 +147,7 @@ bool RenderTexture::InitializeRenderTextureForDepth(int width, int height, ID3D1
 	shaderResourceViewDesc.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
 	shaderResourceViewDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
 	shaderResourceViewDesc.Texture2D.MostDetailedMip = 0;
-	shaderResourceViewDesc.Texture2D.MipLevels = -1;
+	shaderResourceViewDesc.Texture2D.MipLevels = 1;
 
 	result = device->CreateShaderResourceView(m_texture2D, &shaderResourceViewDesc, &m_shaderResourceView);
 	if (FAILED(result))

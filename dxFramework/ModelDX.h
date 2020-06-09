@@ -21,6 +21,54 @@ public:
 		XMFLOAT2 uv;
 	};
 
+	struct Bounds {
+		float minX;
+		float minY;
+		float minZ;
+		float maxX;
+		float maxY;
+		float maxZ;
+
+		Bounds() = default;
+
+		Bounds(XMFLOAT3 min_, XMFLOAT3 max_)
+		{
+			minX = min_.x;
+			minY = min_.y;
+			minZ = min_.z;
+			maxX = max_.x;
+			maxY = max_.y;
+			maxZ = max_.z;
+		}
+
+		Bounds(float minX_, float minY_, float minZ_, float maxX_, float maxY_, float maxZ_)
+		{
+			minX = minX_;
+			minY = minY_;
+			minZ = minZ_;
+			maxX = maxX_;
+			maxY = maxY_;
+			maxZ = maxZ_;
+		}
+
+		XMFLOAT3 GetCenter() {
+			return XMFLOAT3{ minX + (maxX - minX) * 0.5f, minY + (maxY - minY) * 0.5f, minZ + (maxZ - minZ) * 0.5f };
+		}
+
+		XMFLOAT3 GetSize() {
+			return XMFLOAT3{ maxX - minX, maxY - minY, maxZ - minZ };
+		}
+
+		XMFLOAT3 GetHalfSize() {
+			return XMFLOAT3{ (maxX - minX) * 0.5f, (maxY - minY) * 0.5f, (maxZ - minZ) * 0.5f };
+		}
+
+		float GetRadius() {
+			XMFLOAT3 size = GetSize();
+			return max(max(size.x, size.y), size.z);
+		}
+	};
+
 	struct Mesh {
 		unsigned int vertexCount;
 		unsigned int indexCount;
@@ -42,6 +90,8 @@ public:
 	std::vector<Mesh> GetMeshes() const { return m_meshes; };
 	//Return indices to render count
 	unsigned int Render(ID3D11DeviceContext* context);
+
+	Bounds GetBounds(int meshIndex = 0);
 
 private:
 	void ProcessNode(aiNode* node, const aiScene* scene);

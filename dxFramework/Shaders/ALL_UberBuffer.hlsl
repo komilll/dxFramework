@@ -7,4 +7,7 @@ cbuffer UberBuffer : register(b7)
     
 	float3 g_viewerPosition;
 	float g_uberPad2;
+    
+    matrix g_lightViewMatrix;
+    matrix g_lightProjMatrix;
 };
