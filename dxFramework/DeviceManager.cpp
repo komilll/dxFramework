@@ -332,7 +332,7 @@ void DeviceManager::SetBackBufferRenderTarget(bool clearTarget, bool clearDepth)
 	UseViewport();
 }
 
- void DeviceManager::ConfigureSamplerState(ID3D11SamplerState** samplerState, D3D11_TEXTURE_ADDRESS_MODE addressMode, D3D11_FILTER filter, D3D11_COMPARISON_FUNC comparisonFunction) const
+ void DeviceManager::ConfigureSamplerState(ID3D11SamplerState** samplerState, D3D11_TEXTURE_ADDRESS_MODE addressMode /* = D3D11_TEXTURE_ADDRESS_WRAP */, D3D11_FILTER filter /* = D3D11_FILTER_MIN_MAG_MIP_LINEAR */, D3D11_COMPARISON_FUNC comparisonFunction /* = D3D11_COMPARISON_ALWAYS */) const
 {
 	D3D11_SAMPLER_DESC samplerDesc;
 

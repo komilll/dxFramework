@@ -13,8 +13,7 @@ float4 ShadowCalculation(float3 normal, float4 lightPos, float3 pointToLight)
     
     if (saturate(projectTexCoord.x) == projectTexCoord.x && saturate(projectTexCoord.y) == projectTexCoord.y)
     {
-        return float4(projectTexCoord.xy, 0, 1);
-        return shadowMapTexture.Sample(baseSampler, projectTexCoord.xy).r;
+        //return shadowMapTexture.Sample(baseSampler, projectTexCoord.xy).r;
         float depthValue = shadowMapTexture.Sample(baseSampler, projectTexCoord.xy).r;
         float lightDepthValue = lightPos.z / lightPos.w;
         lightDepthValue -= bias;
@@ -41,15 +40,8 @@ float4 main(PixelInputType input) : SV_TARGET
 	const float3 H = normalize(L + input.viewDir.xyz);
 	const float3 specular = pow(max(dot(N, H), 0.0f), 32.0f) * 0.1f;
 	
-    //float3 projCoords = input.lightPos.xyz / input.lightPos.w;
-    //projCoords *= 0.5 + 0.5;
-    //float closestDepth = shadowMapTexture.Sample(baseSampler, projCoords.xy).r;
-    //float currentDepth = projCoords.z;
-    //float shadow = abs(currentDepth - closestDepth);
-    
-    //return closestDepth < 1.0 ? 0.0 : 1.0;
-    //return input.lightPos;
-    return ShadowCalculation(input.normal, input.lightPos, input.pointToLight.xyz);
+    //return shadowMapTexture.Sample(baseSampler, input.uv).r;
+    //return ShadowCalculation(input.normal, input.lightPos, input.pointToLight.xyz);
     
 	return float4(saturate((diffuse + specular) * intensity * g_directionalLightColor.xyz), 1.0f);	
 }

@@ -15,8 +15,8 @@ Renderer::Renderer(std::shared_ptr<DeviceManager> deviceManager)
 	ID3D11Device* device = m_deviceManager->GetDevice();
 
 	//m_directionalLightBufferData.direction = XMFLOAT3{ 0.0f, 1.0f, 1.75f };
-	m_uberBufferData.directionalLightDirection = XMFLOAT3{ 0.0f, 0.0f, 1.0f };
-	m_uberBufferData.directionalLightColor = XMFLOAT4{ 1,1,1,0 };
+	m_uberBufferData.directionalLightDirection = XMFLOAT3{ 0.0f, -1.0f, 1.0f };
+	m_uberBufferData.directionalLightColor = XMFLOAT4{ 1,1,1,1 };
 	m_propertyBufferData.roughness = 0.25f;
 
 	//Presentation of suzanne
@@ -52,12 +52,13 @@ Renderer::Renderer(std::shared_ptr<DeviceManager> deviceManager)
 
 	m_sphereModel = new ModelDX();
 	m_sphereModel->LoadModel("sphere.obj", device);
-	m_sphereModel->m_scale = 0.08f;
+	m_sphereModel->m_scale = 0.2f;
+	m_sphereModel->m_position = XMFLOAT3{ 15.0f, 18.5f, -50.0f };
 
 	m_groundPlaneModel = new ModelDX();
 	m_groundPlaneModel->CreatePlane(device, { 25, 25 });
 	m_groundPlaneModel->m_rotation = XMFLOAT3{ 89.9f * 0.0174532925f, 0, 0 };
-	m_groundPlaneModel->m_position = XMFLOAT3{ 15.0f, 22.0f, -50.0f };
+	m_groundPlaneModel->m_position = XMFLOAT3{ 15.0f, 15.0f, -50.0f };
 
 	m_profiler = new Profiler(device, m_deviceManager->GetDeviceContext());
 
@@ -148,7 +149,8 @@ void Renderer::Render()
 		context->IASetInputLayout(m_inputLayout);
 		m_deviceManager->SetBackBufferRenderTarget();
 
-		RenderShadowMap();
+		//RenderGBuffer(Renderer::GBufferType::Depth);
+		//RenderShadowMap();
 
 		m_deviceManager->SetBackBufferRenderTarget();
 
@@ -235,8 +237,8 @@ void Renderer::Render()
 
 		/* Render plane */
 		context->PSSetShader(m_pixelShaderBlinnPhong, NULL, 0);
-		if (m_shadowMapTexture) { 
-			auto view = m_shadowMapTexture->GetResourceView();
+		if (m_depthBufferTexture) {
+			auto view = m_depthBufferTexture->GetResourceView();
 			context->PSSetShaderResources(0, 1, &view); 
 		}
 
@@ -260,7 +262,7 @@ void Renderer::Render()
 		//context->PSSetShader(m_pixelShaderBunny, NULL, 0);
 		m_indexCount = m_sphereModel->Render(context);
 
-		RenderSphereFromGrid(XMFLOAT3{ m_groundPlaneModel->m_position.x, m_groundPlaneModel->m_position.y + 1.0f, m_groundPlaneModel->m_position.z }, 1.0f, 0.0f);
+		RenderSphereFromGrid(XMFLOAT3{ m_sphereModel->m_position.x, m_sphereModel->m_position.y + 1.0f, m_sphereModel->m_position.z }, 1.0f, 0.0f);
 
 		//m_profiler->StartProfiling("Main render loop");
 		//constexpr int columnCount = 6;
@@ -1137,7 +1139,6 @@ void Renderer::RenderShadowMap()
 	m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixTranslation(m_groundPlaneModel->m_position.x, m_groundPlaneModel->m_position.y, m_groundPlaneModel->m_position.z));
 	m_constantBufferData.world = XMMatrixTranspose(m_constantBufferData.world);
 	
-	//m_constantBufferData.view = CreateViewMatrix(XMVECTOR{ 0,0,0 }, XMFLOAT3{ m_uberBufferData.directionalLightDirection.x, m_uberBufferData.directionalLightDirection.y, m_uberBufferData.directionalLightDirection.z });
 	float radius = m_groundPlaneModel->GetBounds().GetRadius();
 	XMFLOAT3 dir = m_uberBufferData.directionalLightDirection;
 	XMVECTOR lightPos = XMVECTOR{ -2.0f * radius * dir.x, -2.0f * radius * dir.y, -2.0f * radius * dir.z };
@@ -1171,7 +1172,7 @@ void Renderer::RenderShadowMap()
 	context->DrawIndexed(m_indexCount, 0, 0);
 
 	m_indexCount = m_sphereModel->Render(context);
-	RenderSphereFromGrid(XMFLOAT3{ m_groundPlaneModel->m_position.x, m_groundPlaneModel->m_position.y + 1.0f, m_groundPlaneModel->m_position.z }, 1.0f, 0.0f);
+	RenderSphereFromGrid(XMFLOAT3{ m_sphereModel->m_position.x, m_sphereModel->m_position.y + 1.0f, m_sphereModel->m_position.z }, 1.0f, 0.0f);
 
 	CreateViewAndPerspective();
 }

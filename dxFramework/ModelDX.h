@@ -13,6 +13,11 @@ using namespace DirectX;
 class ModelDX
 {
 public:
+	typedef struct _instanceType {
+		XMFLOAT4 color;
+	} InstanceType;
+	static_assert((sizeof(InstanceType) % 16) == 0, "InstanceType size must be 16-byte aligned");
+
 	struct VertexBufferStruct {
 		XMFLOAT3 position;
 		XMFLOAT3 normal;
@@ -128,5 +133,7 @@ private:
 	std::vector<Mesh> m_meshes;
 	ID3D11Buffer* m_vertexBuffer	 = NULL;
 	ID3D11Buffer* m_indexBuffer		 = NULL;
+	ID3D11Buffer* m_instanceBuffer	 = NULL;
 	unsigned int m_indexCount		 = 0;
+	unsigned int m_instanceCount	 = 0;
 };

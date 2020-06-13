@@ -284,5 +284,29 @@ bool ModelDX::PrepareBuffers(ID3D11Device* device)
 		//Failed to create index buffer
 		return false;
 	}
+
+	InstanceType* instances;
+	D3D11_BUFFER_DESC instanceBufferDesc;
+	D3D11_SUBRESOURCE_DATA instanceData;
+
+	m_instanceCount = 4;
+	instances = new InstanceType[m_instanceCount];
+	if (!instances) 
+	{
+		return false;
+	}
+
+	instances[0].color = XMFLOAT4{ 0, 0, 0, 1 };
+	instances[1].color = XMFLOAT4{ 1, 0, 0, 1 };
+	instances[2].color = XMFLOAT4{ 0, 1, 0, 1 };
+	instances[3].color = XMFLOAT4{ 0, 0, 1, 1 };
+
+	instanceBufferDesc.Usage = D3D11_USAGE_DEFAULT;
+	instanceBufferDesc.ByteWidth = sizeof(InstanceType) * m_instanceCount;
+	instanceBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+	instanceBufferDesc.CPUAccessFlags = 0;
+	instanceBufferDesc.MiscFlags = 0;
+	instanceBufferDesc.StructureByteStride = 0;
+
 	return true;
 }
