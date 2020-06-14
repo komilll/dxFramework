@@ -12,6 +12,8 @@ struct PixelInputType
 	float4 pointToLight : TEXCOORD1;
 	float4 viewDir : TEXCOORD2;
     float4 lightPos : TEXCOORD3;
+    float3 instanceColor : TEXCOORD4;
+    float3 instancePosition : TEXCOORD5;
 };
 
 cbuffer PropertyBuffer : register(b0)

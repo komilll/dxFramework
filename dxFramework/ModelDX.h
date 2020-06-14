@@ -14,9 +14,9 @@ class ModelDX
 {
 public:
 	typedef struct _instanceType {
-		XMFLOAT4 color;
+		XMFLOAT3 color;
+		XMFLOAT3 position;
 	} InstanceType;
-	static_assert((sizeof(InstanceType) % 16) == 0, "InstanceType size must be 16-byte aligned");
 
 	struct VertexBufferStruct {
 		XMFLOAT3 position;

@@ -89,9 +89,9 @@ bool ShaderSwapper::CompileShader(std::string vertexShaderName, std::string pixe
 	return result;
 }
 
-std::array<D3D11_INPUT_ELEMENT_DESC, 5> ShaderSwapper::GetStandardPolygonLayout()
+std::array<D3D11_INPUT_ELEMENT_DESC, 7> ShaderSwapper::GetStandardPolygonLayout()
 {
-	std::array<D3D11_INPUT_ELEMENT_DESC, 5> polygonLayout;
+	std::array<D3D11_INPUT_ELEMENT_DESC, 7> polygonLayout;
 	polygonLayout[0].SemanticName = "POSITION";
 	polygonLayout[0].SemanticIndex = 0;
 	polygonLayout[0].Format = DXGI_FORMAT_R32G32B32_FLOAT;
@@ -131,6 +131,24 @@ std::array<D3D11_INPUT_ELEMENT_DESC, 5> ShaderSwapper::GetStandardPolygonLayout(
 	polygonLayout[4].AlignedByteOffset = D3D11_APPEND_ALIGNED_ELEMENT;
 	polygonLayout[4].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
 	polygonLayout[4].InstanceDataStepRate = 0;
+
+	//Instance data - color
+	polygonLayout[5].SemanticName = "TEXCOORD";
+	polygonLayout[5].SemanticIndex = 1;
+	polygonLayout[5].Format = DXGI_FORMAT_R32G32B32_FLOAT;
+	polygonLayout[5].InputSlot = 1;
+	polygonLayout[5].AlignedByteOffset = 0;
+	polygonLayout[5].InputSlotClass = D3D11_INPUT_PER_INSTANCE_DATA;
+	polygonLayout[5].InstanceDataStepRate = 1;
+
+	//Instance data - position
+	polygonLayout[6].SemanticName = "TEXCOORD";
+	polygonLayout[6].SemanticIndex = 2;
+	polygonLayout[6].Format = DXGI_FORMAT_R32G32B32_FLOAT;
+	polygonLayout[6].InputSlot = 2;
+	polygonLayout[6].AlignedByteOffset = D3D11_APPEND_ALIGNED_ELEMENT;
+	polygonLayout[6].InputSlotClass = D3D11_INPUT_PER_INSTANCE_DATA;
+	polygonLayout[6].InstanceDataStepRate = 1;
 
 	return polygonLayout;
 }

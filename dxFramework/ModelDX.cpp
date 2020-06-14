@@ -35,10 +35,11 @@ void ModelDX::LoadModel(std::string path, ID3D11Device * device)
 
 unsigned int ModelDX::Render(ID3D11DeviceContext* context)
 {
-	constexpr UINT stride = sizeof(ModelDX::VertexBufferStruct);
-	constexpr UINT offset = 0;
+	UINT stride[2] { sizeof(ModelDX::VertexBufferStruct), sizeof(ModelDX::InstanceType) };
+	UINT offset[2] { 0, 0 };
+	ID3D11Buffer* buffers[2] { m_vertexBuffer, m_instanceBuffer };
 
-	context->IASetVertexBuffers(0, 1, &m_vertexBuffer, &stride, &offset);
+	context->IASetVertexBuffers(0, 2, buffers, stride, offset);
 	context->IASetIndexBuffer(m_indexBuffer, DXGI_FORMAT_R32_UINT, 0);
 	context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
@@ -53,7 +54,7 @@ ModelDX::Bounds ModelDX::GetBounds(int meshIndex)
 	ModelDX::Mesh mesh = GetMesh(meshIndex);
 	Bounds bounds{ FLT_MAX, FLT_MAX, FLT_MAX, -FLT_MAX, -FLT_MAX, -FLT_MAX };
 
-	for (int i = 0; i < mesh.vertexCount; ++i)
+	for (unsigned int i = 0; i < mesh.vertexCount; ++i)
 	{
 		XMFLOAT3 pos = mesh.vertices[i].position;
 
@@ -296,10 +297,15 @@ bool ModelDX::PrepareBuffers(ID3D11Device* device)
 		return false;
 	}
 
-	instances[0].color = XMFLOAT4{ 0, 0, 0, 1 };
-	instances[1].color = XMFLOAT4{ 1, 0, 0, 1 };
-	instances[2].color = XMFLOAT4{ 0, 1, 0, 1 };
-	instances[3].color = XMFLOAT4{ 0, 0, 1, 1 };
+	instances[0].color = XMFLOAT3{ 0, 0, 0 };
+	instances[1].color = XMFLOAT3{ 1, 0, 0 };
+	instances[2].color = XMFLOAT3{ 0, 1, 0 };
+	instances[3].color = XMFLOAT3{ 0, 0, 1 };
+
+	instances[0].position = XMFLOAT3{ 0, 0, 0 };
+	instances[1].position = XMFLOAT3{ 5, 0, 0 };
+	instances[2].position = XMFLOAT3{ 0, 5, 0 };
+	instances[3].position = XMFLOAT3{ 0, 0, 5 };
 
 	instanceBufferDesc.Usage = D3D11_USAGE_DEFAULT;
 	instanceBufferDesc.ByteWidth = sizeof(InstanceType) * m_instanceCount;
@@ -307,6 +313,19 @@ bool ModelDX::PrepareBuffers(ID3D11Device* device)
 	instanceBufferDesc.CPUAccessFlags = 0;
 	instanceBufferDesc.MiscFlags = 0;
 	instanceBufferDesc.StructureByteStride = 0;
+
+	instanceData.pSysMem = instances;
+	instanceData.SysMemPitch = 0;
+	instanceData.SysMemSlicePitch = 0;
+
+	result = device->CreateBuffer(&instanceBufferDesc, &instanceData, &m_instanceBuffer);
+	if (FAILED(result))
+	{
+		return false;
+	}
+
+	delete instances;
+	instances = 0;
 
 	return true;
 }

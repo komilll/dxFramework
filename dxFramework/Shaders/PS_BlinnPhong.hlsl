@@ -32,6 +32,7 @@ float4 ShadowCalculation(float3 normal, float4 lightPos, float3 pointToLight)
 
 float4 main(PixelInputType input) : SV_TARGET
 {
+    return float4(input.instanceColor, 1);
 	const float3 L = normalize(input.pointToLight.xyz);
 	const float3 N = normalize(input.normal);
 	const float intensity = input.pointToLight.w;	

@@ -15,6 +15,8 @@ struct VertexInputType
 	float3 tangent : TANGENT;
 	float3 binormal : BINORMAL;
 	float2 uv: TEXCOORD0;	
+    float3 instanceColor : TEXCOORD1;
+    float3 instancePosition : TEXCOORD2;
 };
 
 PixelInputType main(VertexInputType input)

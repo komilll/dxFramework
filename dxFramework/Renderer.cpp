@@ -255,6 +255,7 @@ void Renderer::Render()
 		SetConstantBuffers();
 
 		m_indexCount = m_groundPlaneModel->Render(context);
+		//context->DrawInstanced(m_indexCount, 4, 0, 0);
 		context->DrawIndexed(m_indexCount, 0, 0);
 		/* End render plane */
 
