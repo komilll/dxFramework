@@ -87,9 +87,8 @@ private:
 
 	void SaveTextureToFile(RenderTexture * texture, const wchar_t* name);
 
-	XMMATRIX CreateViewMatrix(const XMVECTOR lookAt, const XMFLOAT3 position);
-	XMMATRIX CreateProjectionMatrix();
-	XMMATRIX CreateOrthographicMatrix();
+	XMMATRIX GetLightViewMatrix();
+	XMMATRIX GetLightProjectionMatrix();
 
 private:
 //DEBUG SETTINGS
@@ -249,6 +248,9 @@ private:
 
 	//Postprocess classes
 	ShaderSSAO* m_ssao	= NULL;
+
+	//Directional light variables
+	XMFLOAT3 m_directionalLightPosition;
 };
 
 #endif // !_RENDER_H_

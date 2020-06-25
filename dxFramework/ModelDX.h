@@ -69,7 +69,7 @@ public:
 		}
 
 		float GetRadius() {
-			XMFLOAT3 size = GetSize();
+			XMFLOAT3 size = GetHalfSize();
 			return max(max(size.x, size.y), size.z);
 		}
 	};

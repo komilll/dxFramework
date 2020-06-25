@@ -14,6 +14,9 @@ typedef struct _uberBufferStruct {
 	XMFLOAT3 viewerPosition;
 	float pad2 = 0;
 
+	XMFLOAT3 directionalLightPosition;
+	float pad3 = 0;
+
 	XMMATRIX lightViewMatrix;
 	XMMATRIX lightProjMatrix;
 } UberBufferStruct;

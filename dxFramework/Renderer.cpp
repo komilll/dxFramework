@@ -29,6 +29,7 @@ Renderer::Renderer(std::shared_ptr<DeviceManager> deviceManager)
 
 	m_cameraPosition = XMFLOAT3{ 15.0f, 50.0f, -85.0f };
 	m_cameraRotation = XMFLOAT3{ 45.0f, 0.0f, 180.0f};
+	m_directionalLightPosition = XMFLOAT3{ 0.0f, 50.0f, -85.0f };
 
 	m_deviceManager->ConfigureSamplerState(&m_baseSamplerState);// , D3D11_TEXTURE_ADDRESS_WRAP, D3D11_FILTER_MIN_MAG_LINEAR_MIP_POINT);
 
@@ -46,9 +47,9 @@ Renderer::Renderer(std::shared_ptr<DeviceManager> deviceManager)
 	m_backBufferQuadModel = new ModelDX();
 	m_backBufferQuadModel->SetFullScreenRectangleModel(device);
 
-	m_bunnyModel = new ModelDX();
-	m_bunnyModel->LoadModel("bunny.obj", device);
-	m_bunnyModel->m_scale = 3.5f;
+	//m_bunnyModel = new ModelDX();
+	//m_bunnyModel->LoadModel("bunny.obj", device);
+	//m_bunnyModel->m_scale = 3.5f;
 
 	m_sphereModel = new ModelDX();
 	m_sphereModel->LoadModel("sphere.obj", device);
@@ -134,6 +135,11 @@ void Renderer::Update()
 		m_frameInfoBufferData.currentFrameCount = 0;
 	}
 	m_frameInfoBufferData.currentFrameCount++;
+
+	//m_directionalLightPosition.x += 0.5f;
+	//if (m_directionalLightPosition.x > 50.0f) {
+	//	m_directionalLightPosition.x = -50.0f;
+	//}
 }
 
 void Renderer::Render()
@@ -150,7 +156,7 @@ void Renderer::Render()
 		m_deviceManager->SetBackBufferRenderTarget();
 
 		//RenderGBuffer(Renderer::GBufferType::Depth);
-		//RenderShadowMap();
+		RenderShadowMap();
 
 		m_deviceManager->SetBackBufferRenderTarget();
 
@@ -237,9 +243,17 @@ void Renderer::Render()
 
 		/* Render plane */
 		context->PSSetShader(m_pixelShaderBlinnPhong, NULL, 0);
-		if (m_depthBufferTexture) {
-			auto view = m_depthBufferTexture->GetResourceView();
+		if (m_shadowMapTexture) {
+			auto view = m_shadowMapTexture->GetResourceView();
 			context->PSSetShaderResources(0, 1, &view); 
+		}
+
+		if (m_normalResourceView && m_baseResourceView && m_metallicResourceView && m_roughnessResourceView)
+		{
+			context->PSSetShaderResources(1, 1, &m_baseResourceView);
+			context->PSSetShaderResources(2, 1, &m_normalResourceView);
+			context->PSSetShaderResources(3, 1, &m_metallicResourceView);
+			context->PSSetShaderResources(4, 1, &m_roughnessResourceView);
 		}
 
 		m_constantBufferData.world = XMMatrixIdentity();
@@ -255,7 +269,7 @@ void Renderer::Render()
 		SetConstantBuffers();
 
 		m_indexCount = m_groundPlaneModel->Render(context);
-		//context->DrawInstanced(m_indexCount, 4, 0, 0);
+		//context->DrawIndexedInstanced(m_indexCount, 4, 0, 0, 0);
 		context->DrawIndexed(m_indexCount, 0, 0);
 		/* End render plane */
 
@@ -522,6 +536,7 @@ void Renderer::MapResourceData()
 		dataPtr->viewerPosition = m_uberBufferData.viewerPosition;
 		dataPtr->directionalLightDirection = m_uberBufferData.directionalLightDirection;
 		dataPtr->directionalLightColor = m_uberBufferData.directionalLightColor;
+		dataPtr->directionalLightPosition = m_directionalLightPosition;
 
 		//XMMATRIX lightView = CreateViewMatrix(XMVECTOR{ 0,0,0 }, XMFLOAT3{ m_uberBufferData.directionalLightDirection.x, m_uberBufferData.directionalLightDirection.y, m_uberBufferData.directionalLightDirection.z });
 		//XMMATRIX lightProj = CreateOrthographicMatrix();
@@ -543,10 +558,8 @@ void Renderer::MapResourceData()
 		auto f = sphereCenterLS.m128_f32[2] + radius;
 		//XMMATRIX lightProj = XMMatrixOrthographicOffCenterLH(l, r, b, t, n, f);
 
-		XMMATRIX lightView = DirectX::XMMatrixTranspose(DirectX::XMMatrixLookAtLH(XMVECTOR{ 15.0f, 50.0f, -85.0f }, XMVECTOR{ 0, 0, 0 }, up));
-		constexpr float FOV = 3.14f / 2.0f;
-		constexpr auto screenAspect = 1.0f;
-		XMMATRIX lightProj = DirectX::XMMatrixTranspose(DirectX::XMMatrixPerspectiveFovLH(FOV, screenAspect, 0.01f, 100.0f));
+		XMMATRIX lightView = GetLightViewMatrix();
+		XMMATRIX lightProj = GetLightProjectionMatrix();
 
 		dataPtr->lightViewMatrix = lightView;
 		dataPtr->lightProjMatrix = lightProj;
@@ -1146,8 +1159,8 @@ void Renderer::RenderShadowMap()
 	XMFLOAT3 target = m_groundPlaneModel->GetBounds().GetCenter();
 	XMVECTOR up = { 0, 1, 0 };
 
-	//m_constantBufferData.view = DirectX::XMMatrixTranspose(DirectX::XMMatrixLookAtLH(lightPos, XMVECTOR{ target.x, target.y, target.z }, up));
-	m_constantBufferData.view = DirectX::XMMatrixTranspose(DirectX::XMMatrixLookAtLH(XMVECTOR{ 15.0f, 50.0f, -85.0f }, XMVECTOR{ 0, 0, 0 }, up));
+	//m_constantBufferData.view = DirectX::XMMatrixTranspose(DirectX::XMMatrixLookAtLH(lightPos, XMVECTOR{ 0,0,0 }, up));
+	m_constantBufferData.view = GetLightViewMatrix();
 
 	auto sphereCenterLS = XMVector3TransformCoord(XMVECTOR{ target.x, target.y, target.z }, m_constantBufferData.view);
 	auto l = sphereCenterLS.m128_f32[0] - radius;
@@ -1159,9 +1172,7 @@ void Renderer::RenderShadowMap()
 
 	//m_constantBufferData.projection = XMMatrixOrthographicOffCenterLH(l, r, b, t, n, f);
 	//m_constantBufferData.projection = CreateOrthographicMatrix();
-	constexpr float FOV = 3.14f / 2.0f;
-	constexpr auto screenAspect = 1.0f;
-	m_constantBufferData.projection = DirectX::XMMatrixTranspose(DirectX::XMMatrixPerspectiveFovLH(FOV, screenAspect, 0.01f, 100.0f));
+	m_constantBufferData.projection = GetLightProjectionMatrix();
 
 	MapConstantBuffer();
 
@@ -1191,23 +1202,22 @@ void Renderer::SaveTextureToFile(RenderTexture * texture, const wchar_t* name)
 	}
 }
 
-XMMATRIX Renderer::CreateViewMatrix(const XMVECTOR lookAt, const XMFLOAT3 position)
+XMMATRIX Renderer::GetLightViewMatrix()
 {
+	float radius = m_groundPlaneModel->GetBounds().GetRadius();
+	XMFLOAT3 dir = m_uberBufferData.directionalLightDirection;
+	XMVECTOR lightPos = XMVECTOR{ -4.0f * radius * dir.x, -4.0f * radius * dir.y, -4.0f * radius * dir.z };
+	XMFLOAT3 target = m_groundPlaneModel->GetBounds().GetCenter();
 	const DirectX::XMVECTOR up = DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.f);
-	const DirectX::XMVECTOR eye = DirectX::XMVectorSet(position.x, position.y, position.z, 0.0f);
 
-	//Create view matrix
-	return DirectX::XMMatrixTranspose(DirectX::XMMatrixLookAtLH(eye, lookAt, up));
+	return DirectX::XMMatrixTranspose(DirectX::XMMatrixLookAtLH(XMVECTOR{ target.x, target.y, target.z }, XMVECTOR{ target.x + dir.x, target.y + dir.y, target.z + dir.z }, up));
+
+	return DirectX::XMMatrixTranspose(DirectX::XMMatrixLookAtLH(XMVECTOR{ m_directionalLightPosition.x, m_directionalLightPosition.y, m_directionalLightPosition.z }, XMVECTOR{ target.x, target.y, target.z }, up));
 }
 
-XMMATRIX Renderer::CreateProjectionMatrix()
+XMMATRIX Renderer::GetLightProjectionMatrix()
 {
-	constexpr float FOV = 3.14f / 4.0f;
-	const float aspectRatio = m_deviceManager->GetAspectRatio();
-	return DirectX::XMMatrixTranspose(DirectX::XMMatrixPerspectiveFovLH(FOV, aspectRatio, 0.01f, 100.0f));
-}
-
-XMMATRIX Renderer::CreateOrthographicMatrix()
-{
-	return DirectX::XMMatrixTranspose(DirectX::XMMatrixOrthographicLH(1280, 720, 0.01f, 100.0f));
+	constexpr float FOV = 3.14f / 2.0f;
+	constexpr auto screenAspect = 1.0f;
+	return DirectX::XMMatrixTranspose(DirectX::XMMatrixPerspectiveFovLH(FOV, screenAspect, 0.01f, 100.0f));
 }

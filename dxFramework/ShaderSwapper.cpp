@@ -145,8 +145,8 @@ std::array<D3D11_INPUT_ELEMENT_DESC, 7> ShaderSwapper::GetStandardPolygonLayout(
 	polygonLayout[6].SemanticName = "TEXCOORD";
 	polygonLayout[6].SemanticIndex = 2;
 	polygonLayout[6].Format = DXGI_FORMAT_R32G32B32_FLOAT;
-	polygonLayout[6].InputSlot = 2;
-	polygonLayout[6].AlignedByteOffset = D3D11_APPEND_ALIGNED_ELEMENT;
+	polygonLayout[6].InputSlot = 1;
+	polygonLayout[6].AlignedByteOffset = 12;
 	polygonLayout[6].InputSlotClass = D3D11_INPUT_PER_INSTANCE_DATA;
 	polygonLayout[6].InstanceDataStepRate = 1;
 

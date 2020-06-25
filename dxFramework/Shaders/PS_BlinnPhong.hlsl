@@ -3,27 +3,52 @@
 
 SamplerState baseSampler : register(s0);
 Texture2D shadowMapTexture : register(t0);
+Texture2D texture1 : register(t1);
+Texture2D texture2 : register(t2);
+Texture2D texture3 : register(t3);
+Texture2D texture4 : register(t4);
 
-float4 ShadowCalculation(float3 normal, float4 lightPos, float3 pointToLight)
+float GetCoeffPCF(float3 projectTexCoord)
 {
-    const float bias = 0.001f;
-    float2 projectTexCoord;
+    float width;
+    float height;
+    shadowMapTexture.GetDimensions(width, height);
+                
+    const float xOffset = 1.0 / width;
+    const float yOffset = 1.0 / height;
+    float factor = 0;
+                
+    for (int y = -1; y <= 1; y++)
+    {
+        for (int x = -1; x <= 1; x++)
+        {
+            float2 offsets = float2((float) x * xOffset, (float) y * yOffset);
+            float2 uvCoords = float2(projectTexCoord.xy + offsets);
+            factor += shadowMapTexture.Sample(baseSampler, uvCoords.xy).r;
+        }
+    }
+    
+    return factor / 9.0;
+}
+
+float ShadowCalculation(float3 normal, float4 lightPos, float3 pointToLight)
+{
+    const float bias = 0.00001f;
+    float3 projectTexCoord;
     projectTexCoord.x = lightPos.x / lightPos.w / 2.0f + 0.5f;
     projectTexCoord.y = -lightPos.y / lightPos.w / 2.0f + 0.5f;
+    projectTexCoord.z = lightPos.z / lightPos.w / 2.0f + 0.5f;
     
     if (saturate(projectTexCoord.x) == projectTexCoord.x && saturate(projectTexCoord.y) == projectTexCoord.y)
     {
-        //return shadowMapTexture.Sample(baseSampler, projectTexCoord.xy).r;
-        float depthValue = shadowMapTexture.Sample(baseSampler, projectTexCoord.xy).r;
+        float depthValue = GetCoeffPCF(projectTexCoord);
         float lightDepthValue = lightPos.z / lightPos.w;
         lightDepthValue -= bias;
 
-        return depthValue;
-        if (lightDepthValue < depthValue)
+        if (lightDepthValue > depthValue)
         {
-            //float lightIntensity = saturate(dot(normal, pointToLight));
-            //if (lightIntensity > 0.0f)
-            return 0.0;
+            float percentage = (1.0 - lightDepthValue) / (1.0 - depthValue);
+            return saturate(percentage - 0.5);
         }
     }
     
@@ -32,7 +57,22 @@ float4 ShadowCalculation(float3 normal, float4 lightPos, float3 pointToLight)
 
 float4 main(PixelInputType input) : SV_TARGET
 {
-    return float4(input.instanceColor, 1);
+    // INSTANCE TESTING //
+
+    //switch (input.instanceIndex)
+    //{
+    //    case 0:
+    //        return texture1.Sample(baseSampler, input.uv);
+    //    case 1:
+    //        return texture2.Sample(baseSampler, input.uv);
+    //    case 2:
+    //        return texture3.Sample(baseSampler, input.uv);
+    //    //case 3:
+    //    //    return texture4.Sample(baseSampler, input.uv);
+    //}
+    //return float4(input.instanceColor, 1);
+    
+    //////////////////////
 	const float3 L = normalize(input.pointToLight.xyz);
 	const float3 N = normalize(input.normal);
 	const float intensity = input.pointToLight.w;	
@@ -41,8 +81,7 @@ float4 main(PixelInputType input) : SV_TARGET
 	const float3 H = normalize(L + input.viewDir.xyz);
 	const float3 specular = pow(max(dot(N, H), 0.0f), 32.0f) * 0.1f;
 	
-    //return shadowMapTexture.Sample(baseSampler, input.uv).r;
-    //return ShadowCalculation(input.normal, input.lightPos, input.pointToLight.xyz);
+    const float shadow = ShadowCalculation(input.normal, input.lightPos, input.pointToLight.xyz);
     
-	return float4(saturate((diffuse + specular) * intensity * g_directionalLightColor.xyz), 1.0f);	
+    return float4(saturate((diffuse + specular) * intensity * g_directionalLightColor.xyz * shadow), 1.0f);
 }

@@ -68,6 +68,13 @@ ModelDX::Bounds ModelDX::GetBounds(int meshIndex)
 		if (pos.z < bounds.minZ) bounds.minZ = pos.z;
 	}
 
+	bounds.minX += m_position.x;
+	bounds.maxX += m_position.x;
+	bounds.minY += m_position.y;
+	bounds.maxY += m_position.y;
+	bounds.minZ += m_position.z;
+	bounds.maxZ += m_position.z;
+
 	return bounds;
 }
 
@@ -297,15 +304,15 @@ bool ModelDX::PrepareBuffers(ID3D11Device* device)
 		return false;
 	}
 
-	instances[0].color = XMFLOAT3{ 0, 0, 0 };
+	instances[0].color = XMFLOAT3{ 1, 1, 1 };
 	instances[1].color = XMFLOAT3{ 1, 0, 0 };
 	instances[2].color = XMFLOAT3{ 0, 1, 0 };
 	instances[3].color = XMFLOAT3{ 0, 0, 1 };
 
 	instances[0].position = XMFLOAT3{ 0, 0, 0 };
-	instances[1].position = XMFLOAT3{ 5, 0, 0 };
-	instances[2].position = XMFLOAT3{ 0, 5, 0 };
-	instances[3].position = XMFLOAT3{ 0, 0, 5 };
+	instances[1].position = XMFLOAT3{ 30, 0, 0 };
+	instances[2].position = XMFLOAT3{ 60, 0, 0 };
+	instances[3].position = XMFLOAT3{ 90, 0, 0 };
 
 	instanceBufferDesc.Usage = D3D11_USAGE_DEFAULT;
 	instanceBufferDesc.ByteWidth = sizeof(InstanceType) * m_instanceCount;

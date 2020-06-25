@@ -17,6 +17,7 @@ struct VertexInputType
 	float2 uv: TEXCOORD0;	
     float3 instanceColor : TEXCOORD1;
     float3 instancePosition : TEXCOORD2;
+    uint instanceIndex : SV_InstanceID;
 };
 
 PixelInputType main(VertexInputType input)
@@ -24,11 +25,9 @@ PixelInputType main(VertexInputType input)
 	PixelInputType output;
 		
 	output.position = float4(input.position, 1.0f);
+    output.position.xyz += input.instancePosition.xyz;;
 	float4 positionWS = mul(output.position, worldMatrix);
-    output.positionWS = positionWS.xyz + input.instancePosition.xyz;
-	
-    output.pointToLight.xyz = normalize(-g_directionalLightDirection);
-    output.pointToLight.w = g_directionalLightColor.w;
+    output.positionWS = positionWS.xyz;
 	
 	output.position = mul(positionWS, viewMatrix);
 	output.position = mul(output.position, projectionMatrix);
@@ -40,12 +39,18 @@ PixelInputType main(VertexInputType input)
 	output.viewDir.xyz = normalize(g_viewerPosition.xyz - positionWS.xyz);
 
     output.lightPos = mul(float4(input.position, 1.0f), worldMatrix);
-    output.lightPos = mul(positionWS, g_lightViewMatrix);
+    output.lightPos = mul(output.lightPos, g_lightViewMatrix);
     output.lightPos = mul(output.lightPos, g_lightProjMatrix);
+    
+    //output.pointToLight.xyz = normalize(g_directionalLightPosition - output.positionWS);
+    output.pointToLight.xyz = normalize(-g_directionalLightDirection);
+    output.pointToLight.w = g_directionalLightColor.w;
     
 	output.uv = input.uv;
     
     output.instanceColor = input.instanceColor;
+    output.instancePosition = input.instancePosition;
+    output.instanceIndex = input.instanceIndex;
 	
 	return output;
 }
