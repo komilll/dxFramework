@@ -18,6 +18,7 @@ float GetCoeffPCF(float3 projectTexCoord)
     const float yOffset = 1.0 / height;
     float factor = 0;
                 
+    //return shadowMapTexture.Sample(baseSampler, projectTexCoord.xy).r;
     for (int y = -1; y <= 1; y++)
     {
         for (int x = -1; x <= 1; x++)
@@ -33,7 +34,7 @@ float GetCoeffPCF(float3 projectTexCoord)
 
 float ShadowCalculation(float3 normal, float4 lightPos, float3 pointToLight)
 {
-    const float bias = 0.00001f;
+    const float bias = 0.005f;
     float3 projectTexCoord;
     projectTexCoord.x = lightPos.x / lightPos.w / 2.0f + 0.5f;
     projectTexCoord.y = -lightPos.y / lightPos.w / 2.0f + 0.5f;

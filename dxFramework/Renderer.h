@@ -78,8 +78,8 @@ private:
 	bool CreateSkyboxCubemap();
 	bool CreateDiffuseCubemapIBL();
 
-	void RenderToBackBuffer(RenderTexture* texture);
-	void RenderToBackBuffer(ID3D11ShaderResourceView* resource);
+	void RenderToBackBuffer(RenderTexture* texture, float left = -1.0f, float right = 1.0f, float top = 1.0f, float bottom = -1.0f);
+	void RenderToBackBuffer(ID3D11ShaderResourceView* resource, float left = -1.0f, float right = 1.0f, float top = 1.0f, float bottom = -1.0f);
 	void RenderGBuffer(Renderer::GBufferType type);
 	void RenderSSAO();
 	void RenderSphereFromGrid(XMFLOAT3 position, float roughness, float metallic);
@@ -87,6 +87,7 @@ private:
 
 	void SaveTextureToFile(RenderTexture * texture, const wchar_t* name);
 
+	ModelDX::Bounds GetSceneBounds();
 	XMMATRIX GetLightViewMatrix();
 	XMMATRIX GetLightProjectionMatrix();
 

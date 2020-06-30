@@ -15,7 +15,8 @@ Renderer::Renderer(std::shared_ptr<DeviceManager> deviceManager)
 	ID3D11Device* device = m_deviceManager->GetDevice();
 
 	//m_directionalLightBufferData.direction = XMFLOAT3{ 0.0f, 1.0f, 1.75f };
-	m_uberBufferData.directionalLightDirection = XMFLOAT3{ 0.0f, -1.0f, 1.0f };
+	//m_uberBufferData.directionalLightDirection = XMFLOAT3{ 0.0f, -1.0f, 1.0f };
+	m_uberBufferData.directionalLightDirection = XMFLOAT3{ -1.0f, -0.78f, 0.74f };
 	m_uberBufferData.directionalLightColor = XMFLOAT4{ 1,1,1,1 };
 	m_propertyBufferData.roughness = 0.25f;
 
@@ -41,7 +42,7 @@ Renderer::Renderer(std::shared_ptr<DeviceManager> deviceManager)
 	m_backBufferRenderTexture = new RenderTexture(1280, 720, device);
 	m_diffuseConvolutionTexture = new RenderTexture(256, 256, device);
 	m_environmentBRDF = new RenderTexture(256, 256, device, false, DXGI_FORMAT_R32G32_FLOAT);
-	m_shadowMapTexture = new RenderTexture(1024, 1024, device, true);
+	m_shadowMapTexture = new RenderTexture(2048, 2048, device, true);
 	for (auto& texture : m_specularConvolutionTexture) { texture = new RenderTexture(256, 256, device); }
 	
 	m_backBufferQuadModel = new ModelDX();
@@ -294,6 +295,7 @@ void Renderer::Render()
 		//m_profiler->EndProfiling("Main render loop");
 
 		DrawSkybox();
+		RenderToBackBuffer(m_shadowMapTexture, 0.75f, 1.0f, 1.0f, 0.75f * 1.777777777777778f * 0.5f);
 		//RenderToBackBuffer(m_renderTexture);
 		static int counterToStartAction = 1;
 		counterToStartAction--;
@@ -934,22 +936,26 @@ bool Renderer::CreateDiffuseCubemapIBL()
 	return false;
 }
 
-void Renderer::RenderToBackBuffer(RenderTexture * texture)
+void Renderer::RenderToBackBuffer(RenderTexture * texture, float left, float right, float top, float bottom)
 {
 	if (texture)
 	{
 		if (auto texView = texture->GetResourceView()) {
-			RenderToBackBuffer(texView);
+			RenderToBackBuffer(texView, left, right, top, bottom);
 		}
 	}
 }
 
-void Renderer::RenderToBackBuffer(ID3D11ShaderResourceView * resource)
+void Renderer::RenderToBackBuffer(ID3D11ShaderResourceView * resource, float left, float right, float top, float bottom)
 {
 	ID3D11DeviceContext* context = m_deviceManager->GetDeviceContext();
+	ID3D11Device* device = m_deviceManager->GetDevice();
 
 	m_deviceManager->SetBackBufferRenderTarget(false, false);
-	m_indexCount = m_backBufferQuadModel->Render(context);
+
+	std::unique_ptr<ModelDX> model(new ModelDX());
+	model->SetFullScreenRectangleModel(device, left, right, top, bottom);
+	m_indexCount = model->Render(context);
 
 	context->VSSetShader(m_vertexShaderBackBuffer, NULL, 0);
 	context->PSSetShader(m_pixelShaderBackBuffer, NULL, 0);
@@ -1202,22 +1208,95 @@ void Renderer::SaveTextureToFile(RenderTexture * texture, const wchar_t* name)
 	}
 }
 
+ModelDX::Bounds Renderer::GetSceneBounds()
+{
+	std::vector<ModelDX::Bounds> bounds;
+	bounds.push_back(m_groundPlaneModel->GetBounds());
+	bounds.push_back(m_sphereModel->GetBounds());
+
+	float minX = FLT_MAX;
+	float maxX = -FLT_MAX;
+	float minY = FLT_MAX;
+	float maxY = -FLT_MAX;
+	float minZ = FLT_MAX;
+	float maxZ = -FLT_MAX;
+
+	for (const auto& b : bounds)
+	{
+		if (b.maxX > maxX) maxX = b.maxX;
+		if (b.maxY > maxY) maxY = b.maxY;
+		if (b.maxZ > maxZ) maxZ = b.maxY;
+
+		if (b.minX < minX) minX = b.minX;
+		if (b.minY < minY) minY = b.minY;
+		if (b.minZ < minZ) minZ = b.minY;
+	}
+
+	return ModelDX::Bounds{ minX, minY, minZ, maxX, maxY, maxZ };
+}
+
 XMMATRIX Renderer::GetLightViewMatrix()
 {
-	float radius = m_groundPlaneModel->GetBounds().GetRadius();
-	XMFLOAT3 dir = m_uberBufferData.directionalLightDirection;
-	XMVECTOR lightPos = XMVECTOR{ -4.0f * radius * dir.x, -4.0f * radius * dir.y, -4.0f * radius * dir.z };
-	XMFLOAT3 target = m_groundPlaneModel->GetBounds().GetCenter();
 	const DirectX::XMVECTOR up = DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.f);
+	const XMFLOAT3 dir = m_uberBufferData.directionalLightDirection;
+	ModelDX::Bounds bounds = GetSceneBounds();
 
-	return DirectX::XMMatrixTranspose(DirectX::XMMatrixLookAtLH(XMVECTOR{ target.x, target.y, target.z }, XMVECTOR{ target.x + dir.x, target.y + dir.y, target.z + dir.z }, up));
+	const float radius = bounds.GetRadius();
+	const float radiusScale = -radius;
+	const XMFLOAT3 target = bounds.GetCenter();
 
-	return DirectX::XMMatrixTranspose(DirectX::XMMatrixLookAtLH(XMVECTOR{ m_directionalLightPosition.x, m_directionalLightPosition.y, m_directionalLightPosition.z }, XMVECTOR{ target.x, target.y, target.z }, up));
+	const XMVECTOR lightPos = XMVECTOR{ radiusScale * radius * dir.x, radiusScale * radius * dir.y, radiusScale * radius * dir.z };
+
+	return DirectX::XMMatrixTranspose(DirectX::XMMatrixLookAtLH(lightPos, XMVECTOR{ target.x, target.y, target.z }, up));
+
+	//return DirectX::XMMatrixTranspose(DirectX::XMMatrixLookAtLH(XMVECTOR{ m_directionalLightPosition.x, m_directionalLightPosition.y, m_directionalLightPosition.z }, XMVECTOR{ target.x, target.y, target.z }, up));
 }
 
 XMMATRIX Renderer::GetLightProjectionMatrix()
 {
+	using namespace DirectX;
 	constexpr float FOV = 3.14f / 2.0f;
 	constexpr auto screenAspect = 1.0f;
+
+	ModelDX::Bounds bounds = GetSceneBounds();
+	float radius = max(bounds.GetSize().x, bounds.GetSize().y) * 2.0f;
+	const XMFLOAT3 boundsCenter = bounds.GetCenter();
+	const XMFLOAT3 boundsSize = bounds.GetSize();
+
+	const XMMATRIX lightViewMatrix = GetLightViewMatrix();
+
+	std::array<XMFLOAT3, 8> frustumCorners;
+	std::array<XMFLOAT3, 8> frustumCoeff = { XMFLOAT3{-1.0f, 1.0f, -1.0f}, {1.0f, 1.0f, -1.0f}, {1.0f, -1.0f, -1.0f}, {-1.0f, -1.0f, -1.0f}, {-1.0f, 1.0f, 1.0f}, {1.0f, 1.0f, 1.0f}, {1.0f, -1.0f, 1.0f}, {-1.0f, -1.0f, 1.0f} };
+	XMFLOAT3 frustumCenterWS = boundsCenter;
+
+	for (size_t i = 0; i < frustumCorners.size(); ++i)
+	{
+		frustumCorners[i] = boundsSize;
+		frustumCorners[i].x += 0.5f * frustumCoeff[i].x * boundsSize.x;
+		frustumCorners[i].y += 0.5f * frustumCoeff[i].y * boundsSize.y;
+		frustumCorners[i].z += 0.5f * frustumCoeff[i].z * boundsSize.z;
+	}
+
+	float minX = FLT_MAX;
+	float maxX = -FLT_MAX;
+	float minY = FLT_MAX;
+	float maxY = -FLT_MAX;
+	float minZ = FLT_MAX;
+	float maxZ = -FLT_MAX;
+
+	for (size_t i = 0; i < frustumCorners.size(); ++i) 
+	{
+		XMVECTOR v = XMVector3Transform({ frustumCorners[i].x, frustumCorners[i].y, frustumCorners[i].z }, lightViewMatrix);
+		frustumCorners[i] = { v.m128_f32[0], v.m128_f32[1], v.m128_f32[2] };
+		minX = min(minX, frustumCorners[i].x);
+		maxX = max(maxX, frustumCorners[i].x);
+		minY = min(minY, frustumCorners[i].y);
+		maxY = max(maxY, frustumCorners[i].y);
+		minZ = min(minZ, frustumCorners[i].z);
+		minZ = max(maxZ, frustumCorners[i].z);
+	}
+
+	//return DirectX::XMMatrixTranspose(DirectX::XMMatrixOrthographicLH(100, 100, 0.01f, 1000.0f));
+	return DirectX::XMMatrixTranspose(DirectX::XMMatrixOrthographicOffCenterLH(minX - radius, maxX + radius, minY - radius, maxY + radius, 0.01f, 1000.0f));
 	return DirectX::XMMatrixTranspose(DirectX::XMMatrixPerspectiveFovLH(FOV, screenAspect, 0.01f, 100.0f));
 }

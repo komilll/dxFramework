@@ -10,9 +10,9 @@ void ModelDX::CreatePlane(ID3D11Device * device, XMFLOAT2 size)
 	assert(PrepareBuffers(device));
 }
 
-void ModelDX::SetFullScreenRectangleModel(ID3D11Device * device)
+void ModelDX::SetFullScreenRectangleModel(ID3D11Device * device, float left, float right, float top, float bottom)
 {
-	assert(CreateRectangle(device, -1.0f, 1.0f, 1.0f, -1.0f));
+	assert(CreateRectangle(device, left, right, top, bottom));
 	assert(PrepareBuffers(device));
 }
 
