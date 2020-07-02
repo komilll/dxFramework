@@ -87,7 +87,9 @@ private:
 
 	void SaveTextureToFile(RenderTexture * texture, const wchar_t* name);
 
+	float dxDot(DirectX::XMFLOAT3 a, DirectX::XMFLOAT3 b);
 	ModelDX::Bounds GetSceneBounds();
+	ModelDX::Bounds GetFrustumBounds(XMMATRIX lightView);
 	XMMATRIX GetLightViewMatrix();
 	XMMATRIX GetLightProjectionMatrix();
 
@@ -96,6 +98,8 @@ private:
 	bool FREEZE_CAMERA = false;
 	bool DO_SCREENSHOT_NEXT_FRAME = false;
 	Profiler* m_profiler;
+	static constexpr float Z_NEAR = 0.01f;
+	static constexpr float Z_FAR = 200.0f;
 
 //SCENE SETTINGS
 

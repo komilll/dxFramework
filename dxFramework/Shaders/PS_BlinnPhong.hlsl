@@ -8,7 +8,7 @@ Texture2D texture2 : register(t2);
 Texture2D texture3 : register(t3);
 Texture2D texture4 : register(t4);
 
-float GetCoeffPCF(float3 projectTexCoord)
+float GetCoeffPCF(float2 projectTexCoord)
 {
     float width;
     float height;
@@ -34,7 +34,17 @@ float GetCoeffPCF(float3 projectTexCoord)
 
 float ShadowCalculation(float3 normal, float4 lightPos, float3 pointToLight)
 {
-    const float bias = 0.005f;
+    static float2 poissonDisk[4] =
+    {
+        float2(-0.94201624, -0.39906216),
+        float2(0.94558609, -0.76890725),
+        float2(-0.094184101, -0.92938870),
+        float2(0.34495938, 0.29387760)
+    };
+    
+    //float visibility = 1.0f;
+
+    const float bias = 0.0001f;
     float3 projectTexCoord;
     projectTexCoord.x = lightPos.x / lightPos.w / 2.0f + 0.5f;
     projectTexCoord.y = -lightPos.y / lightPos.w / 2.0f + 0.5f;
@@ -42,18 +52,23 @@ float ShadowCalculation(float3 normal, float4 lightPos, float3 pointToLight)
     
     if (saturate(projectTexCoord.x) == projectTexCoord.x && saturate(projectTexCoord.y) == projectTexCoord.y)
     {
-        float depthValue = GetCoeffPCF(projectTexCoord);
-        float lightDepthValue = lightPos.z / lightPos.w;
-        lightDepthValue -= bias;
-
-        if (lightDepthValue > depthValue)
+        //for (int i = 0; i < 4; i++)
         {
-            float percentage = (1.0 - lightDepthValue) / (1.0 - depthValue);
-            return saturate(percentage - 0.5);
+            float depthValue = GetCoeffPCF(projectTexCoord.xy/* + poissonDisk[i] / 700.0*/);
+            float lightDepthValue = lightPos.z / lightPos.w;
+            lightDepthValue -= bias;
+
+            if (lightDepthValue > depthValue)
+            {
+                float percentage = (1.0 - lightDepthValue) / (1.0 - depthValue);
+                //visibility -= saturate(percentage - 0.5);
+                return saturate(percentage - 0.5);
+            }
         }
     }
     
-    return 1.0;
+    //return saturate(visibility);
+    return 1.0f;
 }
 
 float4 main(PixelInputType input) : SV_TARGET

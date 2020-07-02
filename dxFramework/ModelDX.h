@@ -56,19 +56,19 @@ public:
 			maxZ = maxZ_;
 		}
 
-		XMFLOAT3 GetCenter() {
+		XMFLOAT3 GetCenter() const {
 			return XMFLOAT3{ minX + (maxX - minX) * 0.5f, minY + (maxY - minY) * 0.5f, minZ + (maxZ - minZ) * 0.5f };
 		}
 
-		XMFLOAT3 GetSize() {
+		XMFLOAT3 GetSize() const {
 			return XMFLOAT3{ maxX - minX, maxY - minY, maxZ - minZ };
 		}
 
-		XMFLOAT3 GetHalfSize() {
+		XMFLOAT3 GetHalfSize() const {
 			return XMFLOAT3{ (maxX - minX) * 0.5f, (maxY - minY) * 0.5f, (maxZ - minZ) * 0.5f };
 		}
 
-		float GetRadius() {
+		float GetRadius() const {
 			XMFLOAT3 size = GetHalfSize();
 			return max(max(size.x, size.y), size.z);
 		}
@@ -88,7 +88,9 @@ public:
 		}
 	};
 
+	void CreateLine(ID3D11Device* device, XMFLOAT3 start, XMFLOAT3 end);
 	void CreatePlane(ID3D11Device* device, XMFLOAT2 size);
+	void CreateCube(ID3D11Device* device, XMFLOAT3 min, XMFLOAT3 max);
 	void SetFullScreenRectangleModel(ID3D11Device* device, float left = -1.0f, float right = 1.0f, float top = 1.0f, float bottom = -1.0f);
 	void LoadModel(std::string path, ID3D11Device* device);
 	Mesh GetMesh(int index) const { return m_meshes.at(index); };
@@ -136,4 +138,5 @@ private:
 	ID3D11Buffer* m_instanceBuffer	 = NULL;
 	unsigned int m_indexCount		 = 0;
 	unsigned int m_instanceCount	 = 0;
+	D3D_PRIMITIVE_TOPOLOGY m_topology = D3D_PRIMITIVE_TOPOLOGY::D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 };

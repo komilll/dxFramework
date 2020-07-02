@@ -19,6 +19,7 @@ public:
 	void UseViewport();
 	void UseSkyboxDepthStencilStateAndRasterizer();
 	void UseStandardDepthStencilStateAndRasterizer();
+	void UseWireframeRasterizer();
 	void SetBackBufferRenderTarget(bool clearTarget = true, bool clearDepth = true);
 
 	ID3D11Device* GetDevice() const { return m_device; };
@@ -46,6 +47,8 @@ private:
 
 	ID3D11DepthStencilState* m_skyboxDepthStencilState	= NULL;
 	ID3D11RasterizerState* m_skyboxRasterState			= NULL;
+
+	ID3D11RasterizerState* m_wireframeRasterState		= NULL;
 	
 	D3D_FEATURE_LEVEL m_featureLevel;
 	D3D11_TEXTURE2D_DESC m_backBufferDesc;

@@ -193,6 +193,14 @@ HRESULT DeviceManager::ConfigureBackBuffer()
 		return false;
 	}
 
+	rasterDesc.CullMode = D3D11_CULL_BACK;
+	rasterDesc.FillMode = D3D11_FILL_WIREFRAME;
+	result = m_device->CreateRasterizerState(&rasterDesc, &m_wireframeRasterState);
+	if (FAILED(result))
+	{
+		return false;
+	}
+
 	m_deviceContext->RSSetState(m_rasterState);
 
 	return result;
@@ -321,6 +329,11 @@ void DeviceManager::UseStandardDepthStencilStateAndRasterizer()
 {
 	GetDeviceContext()->OMSetDepthStencilState(m_depthStencilState, 1);
 	m_deviceContext->RSSetState(m_rasterState);
+}
+
+void DeviceManager::UseWireframeRasterizer()
+{
+	m_deviceContext->RSSetState(m_wireframeRasterState);
 }
 
 void DeviceManager::SetBackBufferRenderTarget(bool clearTarget, bool clearDepth)

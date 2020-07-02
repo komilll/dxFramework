@@ -16,7 +16,7 @@ Renderer::Renderer(std::shared_ptr<DeviceManager> deviceManager)
 
 	//m_directionalLightBufferData.direction = XMFLOAT3{ 0.0f, 1.0f, 1.75f };
 	//m_uberBufferData.directionalLightDirection = XMFLOAT3{ 0.0f, -1.0f, 1.0f };
-	m_uberBufferData.directionalLightDirection = XMFLOAT3{ -1.0f, -0.78f, 0.74f };
+	m_uberBufferData.directionalLightDirection = XMFLOAT3{ -1.0f, -0.65f, -1.0f };
 	m_uberBufferData.directionalLightColor = XMFLOAT4{ 1,1,1,1 };
 	m_propertyBufferData.roughness = 0.25f;
 
@@ -42,7 +42,7 @@ Renderer::Renderer(std::shared_ptr<DeviceManager> deviceManager)
 	m_backBufferRenderTexture = new RenderTexture(1280, 720, device);
 	m_diffuseConvolutionTexture = new RenderTexture(256, 256, device);
 	m_environmentBRDF = new RenderTexture(256, 256, device, false, DXGI_FORMAT_R32G32_FLOAT);
-	m_shadowMapTexture = new RenderTexture(2048, 2048, device, true);
+	m_shadowMapTexture = new RenderTexture(1024, 1024, device, true);
 	for (auto& texture : m_specularConvolutionTexture) { texture = new RenderTexture(256, 256, device); }
 	
 	m_backBufferQuadModel = new ModelDX();
@@ -58,9 +58,11 @@ Renderer::Renderer(std::shared_ptr<DeviceManager> deviceManager)
 	m_sphereModel->m_position = XMFLOAT3{ 15.0f, 18.5f, -50.0f };
 
 	m_groundPlaneModel = new ModelDX();
-	m_groundPlaneModel->CreatePlane(device, { 25, 25 });
+	//m_groundPlaneModel->CreatePlane(device, { 25, 25 });
+	m_groundPlaneModel->CreatePlane(device, { 100, 135 });
 	m_groundPlaneModel->m_rotation = XMFLOAT3{ 89.9f * 0.0174532925f, 0, 0 };
-	m_groundPlaneModel->m_position = XMFLOAT3{ 15.0f, 15.0f, -50.0f };
+	//m_groundPlaneModel->m_position = XMFLOAT3{ 15, 15.0f, -55.0f };
+	m_groundPlaneModel->m_position = XMFLOAT3{ 35.0f, 15.0f, -5.0f };
 
 	m_profiler = new Profiler(device, m_deviceManager->GetDeviceContext());
 
@@ -274,11 +276,51 @@ void Renderer::Render()
 		context->DrawIndexed(m_indexCount, 0, 0);
 		/* End render plane */
 
+		//DRAWING LINE
+		//std::unique_ptr<ModelDX> tmp(new ModelDX());
+		//const XMFLOAT3 sceneCenter = GetSceneBounds().GetCenter();
+		//tmp->CreateLine(m_deviceManager->GetDevice(), m_groundPlaneModel->m_position, sceneCenter);
+		//m_constantBufferData.world = XMMatrixIdentity();
+		//MapConstantBuffer();
+		//m_indexCount = tmp->Render(context);
+		//context->DrawIndexed(m_indexCount, 0, 0);
+
 		context->VSSetShader(m_baseVertexShader, NULL, 0);
 		//context->PSSetShader(m_pixelShaderBunny, NULL, 0);
 		m_indexCount = m_sphereModel->Render(context);
 
-		RenderSphereFromGrid(XMFLOAT3{ m_sphereModel->m_position.x, m_sphereModel->m_position.y + 1.0f, m_sphereModel->m_position.z }, 1.0f, 0.0f);
+		for (int row = 0; row < 9; row++)
+		{
+			for (int column = 0; column < 5; column++)
+			{
+				const XMFLOAT3 size = m_sphereModel->GetBounds().GetSize();
+				const float scale = 1.5f * m_sphereModel->m_scale;
+				RenderSphereFromGrid(XMFLOAT3{ m_sphereModel->m_position.x + column * size.x * scale, m_sphereModel->m_position.y + 1.0f, m_sphereModel->m_position.z + row * size.z * scale }, 1.0f, 0.0f);
+			}
+		}
+
+		#pragma region Draw debug box
+		//m_indexCount = m_skyboxModel->Render(context);
+		//m_constantBufferData.world = XMMatrixIdentity();
+		//ModelDX::Bounds lightFrustumBounds = GetFrustumBounds(GetLightViewMatrix());
+		//ModelDX::Bounds sceneBounds = GetSceneBounds();
+		//const float radius = sceneBounds.GetRadius();
+		//const float radiusScale = -1.0f;
+		//const XMFLOAT3 target = sceneBounds.GetCenter();
+		//const XMFLOAT3 dir = m_uberBufferData.directionalLightDirection;
+		//const XMVECTOR lightPos = XMVECTOR{ radiusScale * radius * dir.x, radiusScale * radius * dir.y, radiusScale * radius * dir.z };
+
+		//m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixScaling(lightFrustumBounds.GetSize().x, lightFrustumBounds.GetSize().y, 1000.0f));
+		//m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixRotationRollPitchYaw(m_uberBufferData.directionalLightDirection.x, m_uberBufferData.directionalLightDirection.y, m_uberBufferData.directionalLightDirection.z));
+		//m_constantBufferData.world = XMMatrixMultiply(m_constantBufferData.world, XMMatrixTranslation(lightPos.m128_f32[0], lightPos.m128_f32[1], lightPos.m128_f32[2]));
+		//m_constantBufferData.world = XMMatrixTranspose(m_constantBufferData.world);
+
+		//MapConstantBuffer();
+		//m_deviceManager->UseWireframeRasterizer();
+		//context->DrawIndexed(m_indexCount, 0, 0);
+
+		//m_deviceManager->UseStandardDepthStencilStateAndRasterizer();
+		#pragma endregion
 
 		//m_profiler->StartProfiling("Main render loop");
 		//constexpr int columnCount = 6;
@@ -513,7 +555,7 @@ void Renderer::CreateViewAndPerspective()
 	//Create perspective matrix
 	constexpr float FOV = 3.14f / 4.0f;
 	const float aspectRatio = m_deviceManager->GetAspectRatio();
-	m_constantBufferData.projection = DirectX::XMMatrixTranspose(DirectX::XMMatrixPerspectiveFovLH(FOV, aspectRatio, 0.01f, 100.0f));
+	m_constantBufferData.projection = DirectX::XMMatrixTranspose(DirectX::XMMatrixPerspectiveFovLH(FOV, aspectRatio, Z_NEAR, Z_FAR));
 	//Store projection matrix in SSAO as soon as it changes
 	//m_specialBufferSSAOData.projectionMatrix = m_constantBufferData.projection;
 }
@@ -1190,7 +1232,16 @@ void Renderer::RenderShadowMap()
 	context->DrawIndexed(m_indexCount, 0, 0);
 
 	m_indexCount = m_sphereModel->Render(context);
-	RenderSphereFromGrid(XMFLOAT3{ m_sphereModel->m_position.x, m_sphereModel->m_position.y + 1.0f, m_sphereModel->m_position.z }, 1.0f, 0.0f);
+	//RenderSphereFromGrid(XMFLOAT3{ m_sphereModel->m_position.x, m_sphereModel->m_position.y + 1.0f, m_sphereModel->m_position.z }, 1.0f, 0.0f);
+	for (int row = 0; row < 9; row++)
+	{
+		for (int column = 0; column < 5; column++)
+		{
+			XMFLOAT3 size = m_sphereModel->GetBounds().GetSize();
+			const float scale = 1.5f * m_sphereModel->m_scale;
+			RenderSphereFromGrid(XMFLOAT3{ m_sphereModel->m_position.x + column * size.x * scale, m_sphereModel->m_position.y + 1.0f, m_sphereModel->m_position.z + row * size.z * scale }, 1.0f, 0.0f);
+		}
+	}
 
 	CreateViewAndPerspective();
 }
@@ -1208,11 +1259,36 @@ void Renderer::SaveTextureToFile(RenderTexture * texture, const wchar_t* name)
 	}
 }
 
+float Renderer::dxDot(DirectX::XMFLOAT3 a, DirectX::XMFLOAT3 b)
+{
+	return a.x * b.x + a.y * b.y + a.z * b.z;
+}
+
 ModelDX::Bounds Renderer::GetSceneBounds()
 {
 	std::vector<ModelDX::Bounds> bounds;
 	bounds.push_back(m_groundPlaneModel->GetBounds());
-	bounds.push_back(m_sphereModel->GetBounds());
+	//bounds.push_back(m_sphereModel->GetBounds());
+	ModelDX::Bounds base = m_sphereModel->GetBounds();
+
+	for (int row = 0; row < 9; row++)
+	{
+		for (int column = 0; column < 5; column++)
+		{
+			ModelDX::Bounds b = base;
+			const XMFLOAT3 size = b.GetSize();
+			const float scale = 1.5f * m_sphereModel->m_scale;
+			const float scaleX = scale * column * size.x;
+			const float scaleZ = scale * row * size.z;
+
+			b.minX += scaleX;
+			b.maxX += scaleX;
+			b.minZ += scaleZ;
+			b.maxZ += scaleZ;
+
+			bounds.push_back(b);
+		}
+	}
 
 	float minX = FLT_MAX;
 	float maxX = -FLT_MAX;
@@ -1223,51 +1299,26 @@ ModelDX::Bounds Renderer::GetSceneBounds()
 
 	for (const auto& b : bounds)
 	{
-		if (b.maxX > maxX) maxX = b.maxX;
-		if (b.maxY > maxY) maxY = b.maxY;
-		if (b.maxZ > maxZ) maxZ = b.maxY;
+		maxX = max(b.maxX, maxX);
+		maxY = max(b.maxY, maxY);
+		maxZ = max(b.maxZ, maxZ);
 
-		if (b.minX < minX) minX = b.minX;
-		if (b.minY < minY) minY = b.minY;
-		if (b.minZ < minZ) minZ = b.minY;
+		minX = min(b.minX, minX);
+		minY = min(b.minY, minY);
+		minZ = min(b.minZ, minZ);
 	}
 
 	return ModelDX::Bounds{ minX, minY, minZ, maxX, maxY, maxZ };
 }
 
-XMMATRIX Renderer::GetLightViewMatrix()
+ModelDX::Bounds Renderer::GetFrustumBounds(XMMATRIX lightView)
 {
-	const DirectX::XMVECTOR up = DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.f);
-	const XMFLOAT3 dir = m_uberBufferData.directionalLightDirection;
-	ModelDX::Bounds bounds = GetSceneBounds();
-
-	const float radius = bounds.GetRadius();
-	const float radiusScale = -radius;
-	const XMFLOAT3 target = bounds.GetCenter();
-
-	const XMVECTOR lightPos = XMVECTOR{ radiusScale * radius * dir.x, radiusScale * radius * dir.y, radiusScale * radius * dir.z };
-
-	return DirectX::XMMatrixTranspose(DirectX::XMMatrixLookAtLH(lightPos, XMVECTOR{ target.x, target.y, target.z }, up));
-
-	//return DirectX::XMMatrixTranspose(DirectX::XMMatrixLookAtLH(XMVECTOR{ m_directionalLightPosition.x, m_directionalLightPosition.y, m_directionalLightPosition.z }, XMVECTOR{ target.x, target.y, target.z }, up));
-}
-
-XMMATRIX Renderer::GetLightProjectionMatrix()
-{
-	using namespace DirectX;
-	constexpr float FOV = 3.14f / 2.0f;
-	constexpr auto screenAspect = 1.0f;
-
-	ModelDX::Bounds bounds = GetSceneBounds();
-	float radius = max(bounds.GetSize().x, bounds.GetSize().y) * 2.0f;
-	const XMFLOAT3 boundsCenter = bounds.GetCenter();
-	const XMFLOAT3 boundsSize = bounds.GetSize();
-
-	const XMMATRIX lightViewMatrix = GetLightViewMatrix();
+	ModelDX::Bounds sceneBounds = GetSceneBounds();
 
 	std::array<XMFLOAT3, 8> frustumCorners;
 	std::array<XMFLOAT3, 8> frustumCoeff = { XMFLOAT3{-1.0f, 1.0f, -1.0f}, {1.0f, 1.0f, -1.0f}, {1.0f, -1.0f, -1.0f}, {-1.0f, -1.0f, -1.0f}, {-1.0f, 1.0f, 1.0f}, {1.0f, 1.0f, 1.0f}, {1.0f, -1.0f, 1.0f}, {-1.0f, -1.0f, 1.0f} };
-	XMFLOAT3 frustumCenterWS = boundsCenter;
+	const XMFLOAT3 boundsCenter = sceneBounds.GetCenter();
+	const XMFLOAT3 boundsSize = sceneBounds.GetSize();
 
 	for (size_t i = 0; i < frustumCorners.size(); ++i)
 	{
@@ -1284,19 +1335,71 @@ XMMATRIX Renderer::GetLightProjectionMatrix()
 	float minZ = FLT_MAX;
 	float maxZ = -FLT_MAX;
 
-	for (size_t i = 0; i < frustumCorners.size(); ++i) 
+	for (size_t i = 0; i < frustumCorners.size(); ++i)
 	{
-		XMVECTOR v = XMVector3Transform({ frustumCorners[i].x, frustumCorners[i].y, frustumCorners[i].z }, lightViewMatrix);
+		XMVECTOR v = XMVector3Transform({ frustumCorners[i].x, frustumCorners[i].y, frustumCorners[i].z }, lightView);
 		frustumCorners[i] = { v.m128_f32[0], v.m128_f32[1], v.m128_f32[2] };
 		minX = min(minX, frustumCorners[i].x);
 		maxX = max(maxX, frustumCorners[i].x);
 		minY = min(minY, frustumCorners[i].y);
 		maxY = max(maxY, frustumCorners[i].y);
 		minZ = min(minZ, frustumCorners[i].z);
-		minZ = max(maxZ, frustumCorners[i].z);
+		maxZ = max(maxZ, frustumCorners[i].z);
 	}
 
+	return ModelDX::Bounds{ minX, minY, minZ, maxX, maxY, maxZ };
+}
+
+XMMATRIX Renderer::GetLightViewMatrix()
+{
+	DirectX::XMVECTOR up = DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.f);
+	const XMFLOAT3 dir = m_uberBufferData.directionalLightDirection;
+	ModelDX::Bounds bounds = GetSceneBounds();
+
+	const float radius = bounds.GetRadius();
+	const float radiusScale = -radius;
+	const XMFLOAT3 target = bounds.GetCenter();
+
+	const XMVECTOR lightPos = XMVECTOR{ radiusScale * radius * dir.x, radiusScale * radius * dir.y, radiusScale * radius * dir.z };
+
+	return DirectX::XMMatrixTranspose(DirectX::XMMatrixLookAtLH(lightPos, XMVECTOR{ target.x, target.y, target.z }, up));
+
+	//return DirectX::XMMatrixTranspose(DirectX::XMMatrixLookAtLH(XMVECTOR{ m_directionalLightPosition.x, m_directionalLightPosition.y, m_directionalLightPosition.z }, XMVECTOR{ target.x, target.y, target.z }, up));
+
+	XMVECTOR side = XMVector3Cross({ -dir.x, -dir.y, -dir.z }, up);
+	up = XMVector3Normalize(XMVector3Cross({ -dir.x, -dir.y, -dir.z }, side));
+	XMMATRIX lightView = DirectX::XMMatrixLookAtLH({ target.x, target.y, target.z }, XMVECTOR{ target.x + dir.x, target.y + dir.y, target.z + dir.z }, up);
+	return DirectX::XMMatrixTranspose(lightView);
+	//
+	ModelDX::Bounds frustumBounds = GetFrustumBounds(lightView);
+	//
+
+	XMFLOAT3 offset = target;
+	offset.x += dir.x * frustumBounds.minZ;
+	offset.x += dir.y * frustumBounds.minZ;
+	offset.x += dir.z * frustumBounds.minZ;
+
+	XMMATRIX shadowView = lightView;
+	shadowView.r[3].m128_f32[0] = -dxDot(offset, XMFLOAT3{ side.m128_f32[0], side.m128_f32[1], side.m128_f32[2] });
+	shadowView.r[3].m128_f32[1] = -dxDot(offset, XMFLOAT3{ up.m128_f32[0], up.m128_f32[1], up.m128_f32[2] });
+	shadowView.r[3].m128_f32[2] = -dxDot(offset, XMFLOAT3{ -dir.x, -dir.y, -dir.z });
+
+	return DirectX::XMMatrixTranspose(shadowView);
+}
+
+XMMATRIX Renderer::GetLightProjectionMatrix()
+{
+	constexpr float FOV = 3.14f / 2.0f;
+	constexpr auto screenAspect = 1.0f;
+
+	const ModelDX::Bounds bounds = GetSceneBounds();
+	const float radius = min(bounds.GetHalfSize().x, bounds.GetHalfSize().y);
+	const float radiusZ = max(bounds.GetSize().x, bounds.GetSize().y);
+	//const float radius = bounds.GetRadius();
+	const ModelDX::Bounds frustumBounds = bounds;// GetFrustumBounds(GetLightViewMatrix());
+
 	//return DirectX::XMMatrixTranspose(DirectX::XMMatrixOrthographicLH(100, 100, 0.01f, 1000.0f));
-	return DirectX::XMMatrixTranspose(DirectX::XMMatrixOrthographicOffCenterLH(minX - radius, maxX + radius, minY - radius, maxY + radius, 0.01f, 1000.0f));
-	return DirectX::XMMatrixTranspose(DirectX::XMMatrixPerspectiveFovLH(FOV, screenAspect, 0.01f, 100.0f));
+	XMMATRIX shadowProjection = DirectX::XMMatrixOrthographicOffCenterLH(frustumBounds.minX - radius, frustumBounds.maxX + radius, frustumBounds.minY - radius, frustumBounds.maxY + radius, radiusZ, radiusZ * radiusZ);
+	return DirectX::XMMatrixTranspose(shadowProjection);
+	//return DirectX::XMMatrixTranspose(DirectX::XMMatrixPerspectiveFovLH(FOV, screenAspect, 0.01f, 100.0f));
 }

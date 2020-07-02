@@ -4,9 +4,67 @@
 #include <ctime>
 #include <iostream>
 
+void ModelDX::CreateLine(ID3D11Device * device, XMFLOAT3 start, XMFLOAT3 end)
+{
+	m_topology = D3D11_PRIMITIVE_TOPOLOGY_LINELIST;
+	Mesh localMesh;
+	constexpr size_t verticesCount = 2;
+
+	localMesh.vertices = new VertexBufferStruct[verticesCount];
+	localMesh.indices = new unsigned long[verticesCount];
+	localMesh.vertexCount = verticesCount;
+	localMesh.indexCount = verticesCount;
+
+	for (size_t i = 0; i < verticesCount; ++i) {
+		localMesh.indices[i] = static_cast<unsigned long>(i);
+	}
+
+	localMesh.vertices[0].position = start;
+	localMesh.vertices[1].position = end;
+
+	m_meshes.clear();
+	m_meshes.push_back(localMesh);
+
+	assert(PrepareBuffers(device));
+}
+
 void ModelDX::CreatePlane(ID3D11Device * device, XMFLOAT2 size)
 {
 	assert(CreateRectangle(device, -size.x / 2, size.x / 2, size.y / 2, -size.y / 2));
+	assert(PrepareBuffers(device));
+}
+
+void ModelDX::CreateCube(ID3D11Device * device, XMFLOAT3 min, XMFLOAT3 max)
+{
+	Mesh localMesh;
+	constexpr size_t verticesCount = 8;
+
+	localMesh.vertices = new VertexBufferStruct[verticesCount];
+	localMesh.indices = new unsigned long[verticesCount];
+	localMesh.vertexCount = verticesCount;
+	localMesh.indexCount = verticesCount;
+
+	for (size_t i = 0; i < verticesCount; ++i) {
+		localMesh.indices[i] = static_cast<unsigned long>(i);
+	}
+
+	//Near
+	localMesh.vertices[0].position = XMFLOAT3{ min.x, min.y, min.z }; //Bottom left
+	localMesh.vertices[1].position = XMFLOAT3{ max.x, min.y, min.z }; //Bottom right
+	localMesh.vertices[2].position = XMFLOAT3{ min.x, max.y, min.z }; //Top left
+	localMesh.vertices[3].position = XMFLOAT3{ max.x, max.y, min.z }; //Top right
+	//Far
+	localMesh.vertices[0].position = XMFLOAT3{ min.x, min.y, max.z }; //Bottom left
+	localMesh.vertices[1].position = XMFLOAT3{ max.x, min.y, max.z }; //Bottom right
+	localMesh.vertices[2].position = XMFLOAT3{ min.x, max.y, max.z }; //Top left
+	localMesh.vertices[3].position = XMFLOAT3{ max.x, max.y, max.z }; //Top right
+
+	//Indices
+
+
+	m_meshes.clear();
+	m_meshes.push_back(localMesh);
+
 	assert(PrepareBuffers(device));
 }
 
@@ -41,7 +99,7 @@ unsigned int ModelDX::Render(ID3D11DeviceContext* context)
 
 	context->IASetVertexBuffers(0, 2, buffers, stride, offset);
 	context->IASetIndexBuffer(m_indexBuffer, DXGI_FORMAT_R32_UINT, 0);
-	context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	context->IASetPrimitiveTopology(m_topology);
 
 	if (m_meshes.size() > 0)
 		return GetMesh(0).indexCount;
